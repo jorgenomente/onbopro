@@ -32,3 +32,9 @@
 - /org/courses/[courseId]/lessons/[lessonId]/edit → public.v_org_lesson_detail
 - /org/courses/[courseId]/quizzes/[quizId]/edit → public.v_org_quiz_detail
 - /org/locals/[localId]/courses → public.v_org_local_courses
+
+## Superadmin (MVP)
+
+- /superadmin/organizations → public.v_superadmin_organizations
+- /superadmin/organizations/[orgId] → public.v_superadmin_organization_detail
+- /superadmin/organizations/new → rpc_create_organization

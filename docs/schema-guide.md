@@ -94,6 +94,8 @@ Reglas:
 
 - Solo **superadmin** puede crear organizaciones.
 - Nunca se elimina una organización (solo se archiva).
+- RPC: `rpc_create_organization(name, description)` retorna `org_id`.
+  - `description` es opcional y actualmente no se almacena (no hay columna).
 
 ### locals
 

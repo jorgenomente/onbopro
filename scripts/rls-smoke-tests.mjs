@@ -26,6 +26,7 @@ const REFERENTE_PASSWORD = process.env.TEST_REFERENTE_PASSWORD;
 
 let failures = 0;
 let executed = 0;
+let createdOrgId = null;
 
 async function login(email, password) {
   const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1360,6 +1361,38 @@ async function run() {
       throw new Error('Referente ve org quiz detail (NO debería)');
     }
   });
+  await test('Referente NO ve superadmin orgs', async () => {
+    const { data, error } = await referente
+      .from('v_superadmin_organizations')
+      .select('org_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve superadmin orgs (NO debería)');
+    }
+  });
+  await test('Referente NO ve superadmin org detail', async () => {
+    const { data, error } = await referente
+      .from('v_superadmin_organization_detail')
+      .select('org_id')
+      .eq('org_id', ORG_ID);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve superadmin org detail (NO debería)');
+    }
+  });
+  await test('Referente NO puede crear organizacion (RPC)', async () => {
+    const { error } = await referente.rpc('rpc_create_organization', {
+      p_name: `Ref Org ${Date.now()}`,
+      p_description: null,
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo crear organizacion (NO debería)');
+    }
+  });
   await test('Referente NO puede editar quiz (RPC)', async () => {
     if (!orgQuizId) {
       console.log('ℹ️  Referente quiz RPC sin quiz_id (no data)');
@@ -1498,6 +1531,38 @@ async function run() {
       throw new Error('Aprendiz ve org quiz detail (NO debería)');
     }
   });
+  await test('Aprendiz NO ve superadmin orgs', async () => {
+    const { data, error } = await aprendiz
+      .from('v_superadmin_organizations')
+      .select('org_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve superadmin orgs (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve superadmin org detail', async () => {
+    const { data, error } = await aprendiz
+      .from('v_superadmin_organization_detail')
+      .select('org_id')
+      .eq('org_id', ORG_ID);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve superadmin org detail (NO debería)');
+    }
+  });
+  await test('Aprendiz NO puede crear organizacion (RPC)', async () => {
+    const { error } = await aprendiz.rpc('rpc_create_organization', {
+      p_name: `Apr Org ${Date.now()}`,
+      p_description: null,
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo crear organizacion (NO debería)');
+    }
+  });
   await test('Aprendiz NO puede editar quiz (RPC)', async () => {
     if (!orgQuizId) {
       console.log('ℹ️  Aprendiz quiz RPC sin quiz_id (no data)');
@@ -1559,6 +1624,38 @@ async function run() {
     if (error && !isRlsViolation(error)) throw error;
     if ((data ?? []).length > 0) {
       throw new Error('Anon ve org quiz detail (NO debería)');
+    }
+  });
+  await test('Anon NO ve superadmin orgs', async () => {
+    const { data, error } = await anon
+      .from('v_superadmin_organizations')
+      .select('org_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve superadmin orgs (NO debería)');
+    }
+  });
+  await test('Anon NO ve superadmin org detail', async () => {
+    const { data, error } = await anon
+      .from('v_superadmin_organization_detail')
+      .select('org_id')
+      .eq('org_id', ORG_ID);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve superadmin org detail (NO debería)');
+    }
+  });
+  await test('Anon NO puede crear organizacion (RPC)', async () => {
+    const { error } = await anon.rpc('rpc_create_organization', {
+      p_name: `Anon Org ${Date.now()}`,
+      p_description: null,
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo crear organizacion (NO debería)');
     }
   });
   await test('Anon NO puede editar quiz (RPC)', async () => {
@@ -2665,6 +2762,38 @@ async function run() {
       throw new Error('Org admin pudo crear unit en curso ajeno');
     }
   });
+  await test('Org admin NO ve superadmin orgs', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_superadmin_organizations')
+      .select('org_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve superadmin orgs (NO debería)');
+    }
+  });
+  await test('Org admin NO ve superadmin org detail', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_superadmin_organization_detail')
+      .select('org_id')
+      .eq('org_id', ORG_ID);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve superadmin org detail (NO debería)');
+    }
+  });
+  await test('Org admin NO puede crear organizacion (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_create_organization', {
+      p_name: `OrgAdmin Org ${Date.now()}`,
+      p_description: null,
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo crear organizacion (NO debería)');
+    }
+  });
 
   const superadmin = await login(
     process.env.TEST_SUPERADMIN_EMAIL,
@@ -2838,6 +2967,75 @@ async function run() {
     },
     { critical: false },
   );
+  await test('Superadmin ve superadmin orgs', async () => {
+    const { data, error } = await superadmin
+      .from('v_superadmin_organizations')
+      .select('org_id')
+      .limit(1);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0) {
+      throw new Error('Superadmin no ve superadmin orgs');
+    }
+  });
+  await test('Superadmin ve superadmin org detail', async () => {
+    const { data, error } = await superadmin
+      .from('v_superadmin_organization_detail')
+      .select('org_id, locals, admins, courses')
+      .eq('org_id', ORG_ID)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.org_id) {
+      throw new Error('Superadmin no ve superadmin org detail');
+    }
+    if (!Array.isArray(data.locals)) {
+      throw new Error('superadmin org detail locals no es array');
+    }
+    if (!Array.isArray(data.admins)) {
+      throw new Error('superadmin org detail admins no es array');
+    }
+    if (!Array.isArray(data.courses)) {
+      throw new Error('superadmin org detail courses no es array');
+    }
+  });
+  await test('Superadmin puede crear organizacion (RPC)', async () => {
+    const orgName = `Smoke Org ${Date.now()}`;
+    const { data, error } = await superadmin.rpc('rpc_create_organization', {
+      p_name: orgName,
+      p_description: null,
+    });
+
+    if (error) throw error;
+    createdOrgId = data;
+    if (!createdOrgId) {
+      throw new Error('rpc_create_organization sin org_id');
+    }
+
+    const { data: list, error: listError } = await superadmin
+      .from('v_superadmin_organizations')
+      .select('org_id')
+      .eq('org_id', createdOrgId)
+      .limit(1);
+
+    if (listError) throw listError;
+    if ((list ?? []).length === 0) {
+      throw new Error('Org creada no aparece en v_superadmin_organizations');
+    }
+
+    const { data: detail, error: detailError } = await superadmin
+      .from('v_superadmin_organization_detail')
+      .select('org_id')
+      .eq('org_id', createdOrgId)
+      .maybeSingle();
+
+    if (detailError) throw detailError;
+    if (!detail?.org_id) {
+      throw new Error(
+        'Org creada no aparece en v_superadmin_organization_detail',
+      );
+    }
+  });
   await test(
     'Superadmin ve org local courses (si aplica)',
     async () => {

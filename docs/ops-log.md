@@ -1871,3 +1871,75 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 
 - [x] `npm run lint`
 - [x] `npm run build`
+
+### 2026-01-06T19:45:20Z — Superadmin Paso 1 — screen contracts
+
+**Goal**
+
+- Add Superadmin screen contracts for organizations list/detail and create form
+
+**Files changed**
+
+- docs/screens/superadmin-organizations-list.md
+- docs/screens/superadmin-organization-detail.md
+- docs/screens/superadmin-create-organization.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+### 2026-01-06T20:07:10Z — Superadmin Paso 2 — views + smoke tests
+
+**Goal**
+
+- Create read-only Superadmin views with rls_is_superadmin() scope
+- Add RLS smoke tests for Superadmin views
+
+**Files changed**
+
+- supabase/migrations/20260106133000_056_create_superadmin_views.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (137 tests)
+
+### 2026-01-06T20:26:30Z — Superadmin Paso 3 — rpc_create_organization
+
+**Goal**
+
+- Add rpc_create_organization for superadmin-only org creation
+- Extend smoke tests for allow/deny and view presence
+
+**Files changed**
+
+- supabase/migrations/20260106140000_057_create_rpc_create_organization.sql
+- scripts/rls-smoke-tests.mjs
+- docs/schema-guide.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (142 tests)
+
+### 2026-01-06T20:42:10Z — Superadmin Paso 4 — UI /superadmin/\*
+
+**Goal**
+
+- Implement Superadmin UI screens (list/detail/create)
+- Consume Superadmin views and rpc_create_organization
+
+**Files changed**
+
+- app/superadmin/layout.tsx
+- app/superadmin/organizations/page.tsx
+- app/superadmin/organizations/[orgId]/page.tsx
+- app/superadmin/organizations/new/page.tsx
+- app/components/Header.tsx
+- docs/ops-log.md
+
+**Notes**
+
+- Reads from public.v_superadmin_organizations and public.v_superadmin_organization_detail
+- Writes via rpc_create_organization (description is optional and not persisted)
