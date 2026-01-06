@@ -247,3 +247,43 @@ SQL view naming convention:
 - v_learner_dashboard_courses
 - v_referente_local_progress
 - v_org_admin_roster
+
+## Screen Wiring Rules (MANDATORY)
+
+The following rules are mandatory for ONBO and apply to ALL agents
+(ChatGPT, Codex CLI, humans):
+
+### 1. One Screen = One View (READ)
+
+- Each UI screen MUST read from exactly ONE SQL view.
+- UI must NEVER join data logically or fetch from multiple sources.
+- If navigation requires an ID (e.g. quiz_id), that ID MUST be exposed by the screen’s view.
+
+### 2. Writes are Explicit
+
+- All writes must be:
+  - direct inserts/updates under strict RLS, OR
+  - RPCs (SECURITY DEFINER) with server-side validation.
+- UI must never “assume” write permissions.
+
+### 3. Deterministic Navigation
+
+- If a screen links to another screen, the linking ID must be:
+  - deterministic
+  - guaranteed by schema constraints (e.g. unique indexes)
+- No frontend heuristics to “guess” targets.
+
+### 4. Views Are Wiring Contracts
+
+- Views are not only data providers but navigation contracts.
+- If a screen needs to link elsewhere, the view must expose the necessary IDs.
+
+### 5. No Hidden State in UI
+
+- UI state must be derived exclusively from:
+  - view columns
+  - nullability
+  - explicit enums (e.g. attempt_status)
+- Never invent can\_\* flags in frontend.
+
+Violations of these rules require updating the docs BEFORE implementation.

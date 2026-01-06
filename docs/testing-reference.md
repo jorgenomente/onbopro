@@ -160,3 +160,73 @@ Garantizar que:
   **qué se está testeando y con qué datos**
 
 Este archivo es parte del **contrato de seguridad** del proyecto.
+
+---
+
+## 7. Dev Seed — Quizzes para UI Outline
+
+Seed **solo para DEV** para habilitar botones de quiz en el Course Outline.
+
+### Como ejecutar
+
+Opcion A (SQL Editor en Supabase DEV):
+
+1. Abrir SQL Editor en el proyecto de desarrollo.
+2. Ejecutar el contenido de:
+   - `supabase/seed/dev_quiz_seed.sql`
+
+Opcion B (psql local):
+
+```bash
+psql "$SUPABASE_DB_URL" -f supabase/seed/dev_quiz_seed.sql
+```
+
+### Que hace
+
+- Descubre un `local_id` con `local_courses.status = 'active'`.
+- Toma un `course_id` asignado a ese local.
+- Selecciona la primera unidad del curso.
+- Crea (o reusa) un quiz de unidad y un quiz final.
+- Inserta 2 preguntas con 2 opciones (1 correcta, 1 incorrecta).
+
+### Verificacion rapida
+
+```sql
+select unit_quiz_id, course_quiz_id
+from public.v_course_outline
+where local_id = '<local_id>'
+  and course_id = '<course_id>'
+limit 20;
+```
+
+Si el seed corrio bien, debe devolver al menos un `unit_quiz_id` y un
+`course_quiz_id` no null.
+
+### Resultado esperado en UI
+
+- En `/l/[localId]/courses/[courseId]` aparece:
+  - Boton "Hacer evaluacion" en la unidad con quiz.
+  - Boton "Evaluacion final del curso" al final.
+- Navegacion funcional a `/l/[localId]/quizzes/[quizId]`.
+
+---
+
+## 8. UI regression checklist (Learner)
+
+Checklist manual minimo para validar Lote 1 end-to-end:
+
+1. Login como `aprendiz@test.com`
+2. Dashboard (/l/[localId]/dashboard)
+   - Ver cursos asignados
+   - Click "Ver curso"
+3. Course Outline (/l/[localId]/courses/[courseId])
+   - Ver unidades y lecciones
+   - Click "Continuar" abre Lesson Player
+   - (Si hay quiz seed) ver botones "Hacer evaluacion" y "Evaluacion final del curso"
+4. Lesson Player (/l/[localId]/lessons/[lessonId])
+   - Click "Marcar como completada"
+   - Refetch muestra completada
+5. Quiz Player (/l/[localId]/quizzes/[quizId])
+   - Click "Comenzar"
+   - Seleccionar opciones y "Enviar"
+   - Ver score/passed

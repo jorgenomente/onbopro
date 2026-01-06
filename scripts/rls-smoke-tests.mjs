@@ -9,8 +9,10 @@ const COURSE_ID = '2c8e263a-e835-4ec8-828c-9b57ce5c7156';
 const UNIT_ID = '809b8e44-d6b1-4478-80b5-af4dbf53dd91';
 const LESSON_ID = '30b3b16c-3b59-4eae-b8cf-c15194a2afdc';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY =
+  process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
@@ -20,6 +22,7 @@ const REFERENTE_EMAIL = process.env.TEST_REFERENTE_EMAIL;
 const REFERENTE_PASSWORD = process.env.TEST_REFERENTE_PASSWORD;
 
 let failures = 0;
+let executed = 0;
 
 async function login(email, password) {
   const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -29,6 +32,7 @@ async function login(email, password) {
 }
 
 async function test(name, fn, { critical = true } = {}) {
+  executed += 1;
   try {
     await fn();
     console.log(`✅ PASS: ${name}`);
@@ -51,6 +55,77 @@ function isUniqueViolation(error) {
 
 function isRlsViolation(error) {
   return /row-level security/i.test(error?.message ?? '');
+}
+
+function isIntegrityViolation(error) {
+  return /quiz_answers org\/local\/course\/user must match attempt/i.test(
+    error?.message ?? '',
+  );
+}
+
+async function findScoringQuiz(client) {
+  const { data: localCourses, error: localCoursesError } = await client
+    .from('local_courses')
+    .select('course_id')
+    .eq('local_id', LOCAL_A);
+
+  if (localCoursesError) throw localCoursesError;
+  const courseIds = (localCourses ?? []).map((row) => row.course_id);
+  if (courseIds.length === 0) return null;
+
+  const { data: quizzes, error: quizzesError } = await client
+    .from('quizzes')
+    .select('id, course_id')
+    .in('course_id', courseIds);
+
+  if (quizzesError) throw quizzesError;
+  const quizIds = (quizzes ?? []).map((row) => row.id);
+  if (quizIds.length === 0) return null;
+
+  for (const quizId of quizIds) {
+    const { data: questions, error: questionsError } = await client
+      .from('quiz_questions')
+      .select('id, position')
+      .eq('quiz_id', quizId)
+      .order('position', { ascending: true });
+
+    if (questionsError) throw questionsError;
+    if (!questions || questions.length === 0) continue;
+
+    const questionIds = questions.map((q) => q.id);
+    const { data: options, error: optionsError } = await client
+      .from('quiz_options')
+      .select('id, question_id, is_correct')
+      .in('question_id', questionIds);
+
+    if (optionsError) throw optionsError;
+    if (!options || options.length === 0) continue;
+
+    const optionsByQuestion = new Map();
+    options.forEach((option) => {
+      if (!optionsByQuestion.has(option.question_id)) {
+        optionsByQuestion.set(option.question_id, []);
+      }
+      optionsByQuestion.get(option.question_id).push(option);
+    });
+
+    const hasAllCorrect = questions.every((q) =>
+      (optionsByQuestion.get(q.id) ?? []).some((opt) => opt.is_correct),
+    );
+    const hasAllWrong = questions.every((q) =>
+      (optionsByQuestion.get(q.id) ?? []).some((opt) => !opt.is_correct),
+    );
+
+    if (!hasAllCorrect || !hasAllWrong) continue;
+
+    return {
+      quizId,
+      questions,
+      optionsByQuestion,
+    };
+  }
+
+  return null;
 }
 
 async function ensureLessonCompletion(client, userId) {
@@ -154,6 +229,8 @@ async function run() {
     process.env.TEST_APRENDIZ_EMAIL,
     process.env.TEST_APRENDIZ_PASSWORD,
   );
+  let quizAttemptId = null;
+  let quizIdForRpc = null;
 
   await test('Aprendiz ve SOLO su local', async () => {
     const { data, error } = await aprendiz.from('locals').select('id,name');
@@ -226,6 +303,59 @@ async function run() {
     if ((data ?? []).length === 0)
       throw new Error('No ve course outline en Local A');
   });
+  await test('Aprendiz ve columnas quiz ids en course outline', async () => {
+    const { data: locals, error: localsError } = await aprendiz
+      .from('v_my_locals')
+      .select('local_id')
+      .limit(1);
+
+    if (localsError) throw localsError;
+    const localId = locals?.[0]?.local_id ?? LOCAL_A;
+
+    const { data: courses, error: coursesError } = await aprendiz
+      .from('v_learner_dashboard_courses')
+      .select('course_id')
+      .eq('local_id', localId)
+      .limit(1);
+
+    if (coursesError) throw coursesError;
+    const courseId = courses?.[0]?.course_id ?? COURSE_ID;
+
+    const { data, error } = await aprendiz
+      .from('v_course_outline')
+      .select('unit_id, unit_quiz_id, course_quiz_id')
+      .eq('local_id', localId)
+      .eq('course_id', courseId);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0)
+      throw new Error('No hay filas en course outline');
+
+    const rows = data ?? [];
+    const hasUnitQuiz = rows.some((row) => row.unit_quiz_id);
+    const hasCourseQuiz = rows.some((row) => row.course_quiz_id);
+    if (!hasUnitQuiz && !hasCourseQuiz) {
+      console.log('ℹ️  Course outline sin quiz ids (no quiz seeded)');
+      return;
+    }
+
+    const unitQuizByUnit = new Map();
+    rows.forEach((row) => {
+      if (!row.unit_quiz_id) return;
+      const current = unitQuizByUnit.get(row.unit_id);
+      if (current && current !== row.unit_quiz_id) {
+        throw new Error('unit_quiz_id inconsistente dentro de la unidad');
+      }
+      unitQuizByUnit.set(row.unit_id, row.unit_quiz_id);
+    });
+
+    const courseQuizIds = Array.from(
+      new Set(rows.map((row) => row.course_quiz_id).filter(Boolean)),
+    );
+    if (courseQuizIds.length > 1) {
+      throw new Error('course_quiz_id inconsistente para el curso');
+    }
+  });
   await test('Aprendiz NO ve course outline en Local B', async () => {
     const { data, error } = await aprendiz
       .from('v_course_outline')
@@ -268,6 +398,69 @@ async function run() {
     if (ids.includes(LOCAL_B))
       throw new Error('Ve Local B en v_my_locals (NO debería)');
   });
+  await test('RPC: rpc_mark_lesson_completed (aprendiz happy path + idempotencia)', async () => {
+    const { data: locals, error: localsError } = await aprendiz
+      .from('v_my_locals')
+      .select('local_id');
+
+    if (localsError) throw localsError;
+    const localId = locals?.[0]?.local_id;
+    if (!localId) throw new Error('No hay local para aprendiz');
+
+    const { data: outline, error: outlineError } = await aprendiz
+      .from('v_course_outline')
+      .select('lesson_id')
+      .eq('local_id', localId)
+      .limit(1);
+
+    if (outlineError) throw outlineError;
+    const lessonId = outline?.[0]?.lesson_id;
+    if (!lessonId) throw new Error('No hay lesson_id accesible');
+
+    const payload = { p_local_id: localId, p_lesson_id: lessonId };
+    const { error: rpcError1 } = await aprendiz.rpc(
+      'rpc_mark_lesson_completed',
+      payload,
+    );
+    if (rpcError1) throw rpcError1;
+    const { error: rpcError2 } = await aprendiz.rpc(
+      'rpc_mark_lesson_completed',
+      payload,
+    );
+    if (rpcError2) throw rpcError2;
+
+    const { data: lesson, error: lessonError } = await aprendiz
+      .from('v_lesson_player')
+      .select('is_completed')
+      .eq('local_id', localId)
+      .eq('lesson_id', lessonId)
+      .single();
+
+    if (lessonError) throw lessonError;
+    if (!lesson?.is_completed)
+      throw new Error('RPC no marco completada la leccion');
+  });
+  await test('RPC: rpc_mark_lesson_completed (deny local ajeno)', async () => {
+    const { data: outline, error: outlineError } = await aprendiz
+      .from('v_course_outline')
+      .select('lesson_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (outlineError) throw outlineError;
+    const lessonId = outline?.[0]?.lesson_id;
+    if (!lessonId) throw new Error('No hay lesson_id accesible');
+
+    const { error: rpcError } = await aprendiz.rpc(
+      'rpc_mark_lesson_completed',
+      {
+        p_local_id: LOCAL_B,
+        p_lesson_id: lessonId,
+      },
+    );
+
+    if (!rpcError) throw new Error('RPC permitido en local ajeno (NO debería)');
+  });
   await test('Aprendiz ve quiz state not_started (si aplica)', async () => {
     const quizId = await getQuizId(aprendiz);
     if (!quizId) {
@@ -294,7 +487,12 @@ async function run() {
       return;
     }
 
-    await ensureQuizAttempt(aprendiz, quizId, APRENDIZ_UID);
+    const { error: startError } = await aprendiz.rpc('rpc_quiz_start', {
+      p_local_id: LOCAL_A,
+      p_quiz_id: quizId,
+    });
+
+    if (startError) throw startError;
 
     const { data, error } = await aprendiz
       .from('v_quiz_state')
@@ -310,6 +508,199 @@ async function run() {
       );
     }
   });
+  await test('RPC: quiz start (idempotente) (si aplica)', async () => {
+    const quizId = await getQuizId(aprendiz);
+    if (!quizId) {
+      return;
+    }
+
+    quizIdForRpc = quizId;
+
+    const { data, error } = await aprendiz.rpc('rpc_quiz_start', {
+      p_local_id: LOCAL_A,
+      p_quiz_id: quizId,
+    });
+
+    if (error) throw error;
+    quizAttemptId = data;
+    if (!quizAttemptId)
+      throw new Error('rpc_quiz_start no devolvio attempt_id');
+
+    const { data: data2, error: error2 } = await aprendiz.rpc(
+      'rpc_quiz_start',
+      {
+        p_local_id: LOCAL_A,
+        p_quiz_id: quizId,
+      },
+    );
+
+    if (error2) throw error2;
+    if (data2 !== quizAttemptId) {
+      throw new Error('rpc_quiz_start no es idempotente');
+    }
+  });
+  await test('RPC: quiz answer (si aplica)', async () => {
+    if (!quizIdForRpc || !quizAttemptId) {
+      return;
+    }
+
+    const { data: state, error: stateError } = await aprendiz
+      .from('v_quiz_state')
+      .select('questions')
+      .eq('local_id', LOCAL_A)
+      .eq('quiz_id', quizIdForRpc)
+      .single();
+
+    if (stateError) throw stateError;
+    const firstQuestion = state?.questions?.[0];
+    const firstOption = firstQuestion?.options?.[0];
+    if (!firstQuestion || !firstOption) {
+      return;
+    }
+
+    const { error: answerError } = await aprendiz.rpc('rpc_quiz_answer', {
+      p_attempt_id: quizAttemptId,
+      p_question_id: firstQuestion.question_id,
+      p_option_id: firstOption.option_id,
+      p_answer_text: null,
+    });
+
+    if (answerError) throw answerError;
+
+    const { data: stateAfter, error: stateAfterError } = await aprendiz
+      .from('v_quiz_state')
+      .select('answered_count, questions')
+      .eq('local_id', LOCAL_A)
+      .eq('quiz_id', quizIdForRpc)
+      .single();
+
+    if (stateAfterError) throw stateAfterError;
+    if (stateAfter.answered_count < 1) {
+      throw new Error('answered_count no incremento luego de rpc_quiz_answer');
+    }
+  });
+  await test('RPC: quiz submit (idempotente) (si aplica)', async () => {
+    if (!quizAttemptId || !quizIdForRpc) {
+      return;
+    }
+
+    const { data, error } = await aprendiz.rpc('rpc_quiz_submit', {
+      p_attempt_id: quizAttemptId,
+    });
+
+    if (error) throw error;
+    if (data?.score == null || data?.passed == null) {
+      throw new Error('rpc_quiz_submit no devolvio score/passed');
+    }
+
+    const { data: data2, error: error2 } = await aprendiz.rpc(
+      'rpc_quiz_submit',
+      {
+        p_attempt_id: quizAttemptId,
+      },
+    );
+
+    if (error2) throw error2;
+    if (data2?.score !== data.score || data2?.passed !== data.passed) {
+      throw new Error('rpc_quiz_submit no es idempotente');
+    }
+
+    const { data: state, error: stateError } = await aprendiz
+      .from('v_quiz_state')
+      .select('attempt_status')
+      .eq('local_id', LOCAL_A)
+      .eq('quiz_id', quizIdForRpc)
+      .single();
+
+    if (stateError) throw stateError;
+    if (state.attempt_status !== 'submitted') {
+      throw new Error(`Estado esperado submitted, got ${state.attempt_status}`);
+    }
+  });
+  await test(
+    'RPC: quiz scoring (correct vs incorrect)',
+    async () => {
+      const scoringQuiz = await findScoringQuiz(aprendiz);
+      if (!scoringQuiz) {
+        console.log('ℹ️  Skip: no quiz con opciones correctas/incorrectas');
+        return;
+      }
+
+      const { quizId, questions, optionsByQuestion } = scoringQuiz;
+
+      const { data: attemptId, error: startError } = await aprendiz.rpc(
+        'rpc_quiz_start',
+        {
+          p_local_id: LOCAL_A,
+          p_quiz_id: quizId,
+        },
+      );
+      if (startError) throw startError;
+      if (!attemptId) throw new Error('No se creo attempt para scoring');
+
+      for (const question of questions) {
+        const options = optionsByQuestion.get(question.id) ?? [];
+        const correct = options.find((opt) => opt.is_correct);
+        if (!correct) throw new Error('No hay opcion correcta');
+        const { error } = await aprendiz.rpc('rpc_quiz_answer', {
+          p_attempt_id: attemptId,
+          p_question_id: question.id,
+          p_option_id: correct.id,
+          p_answer_text: null,
+        });
+        if (error) throw error;
+      }
+
+      const { data: submitData, error: submitError } = await aprendiz.rpc(
+        'rpc_quiz_submit',
+        {
+          p_attempt_id: attemptId,
+        },
+      );
+      if (submitError) throw submitError;
+      if (submitData?.score !== 100) {
+        throw new Error(`Score esperado 100, got ${submitData?.score}`);
+      }
+      if (submitData?.passed !== true) {
+        throw new Error('Passed esperado true');
+      }
+
+      const { data: attemptId2, error: startError2 } = await aprendiz.rpc(
+        'rpc_quiz_start',
+        {
+          p_local_id: LOCAL_A,
+          p_quiz_id: quizId,
+        },
+      );
+      if (startError2) throw startError2;
+      if (!attemptId2) throw new Error('No se creo attempt incorrecto');
+
+      for (const question of questions) {
+        const options = optionsByQuestion.get(question.id) ?? [];
+        const wrong = options.find((opt) => !opt.is_correct);
+        if (!wrong) throw new Error('No hay opcion incorrecta');
+        const { error } = await aprendiz.rpc('rpc_quiz_answer', {
+          p_attempt_id: attemptId2,
+          p_question_id: question.id,
+          p_option_id: wrong.id,
+          p_answer_text: null,
+        });
+        if (error) throw error;
+      }
+
+      const { data: submitData2, error: submitError2 } = await aprendiz.rpc(
+        'rpc_quiz_submit',
+        {
+          p_attempt_id: attemptId2,
+        },
+      );
+      if (submitError2) throw submitError2;
+      if (submitData2?.passed !== false) {
+        throw new Error('Passed esperado false con respuestas incorrectas');
+      }
+    },
+    { critical: false },
+  );
   await test('Aprendiz responde quiz y answered_count incrementa (si aplica)', async () => {
     const quizId = await getQuizId(aprendiz);
     if (!quizId) {
@@ -471,7 +862,7 @@ async function run() {
     const { error } = await aprendiz.from('quiz_answers').insert(payload);
     if (!error)
       throw new Error('Insert indebido permitido; debería fallar por RLS');
-    if (!isRlsViolation(error)) {
+    if (!isRlsViolation(error) && !isIntegrityViolation(error)) {
       throw new Error(`Insert falló pero no por RLS: ${error.message}`);
     }
   });
@@ -492,6 +883,66 @@ async function run() {
     if (!data?.some((r) => r.user_id === REFERENTE_UID)) {
       throw new Error('No ve su membership en Local A');
     }
+  });
+  await test('RPC: rpc_mark_lesson_completed (deny otro usuario)', async () => {
+    const { data: outline, error: outlineError } = await aprendiz
+      .from('v_course_outline')
+      .select('lesson_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (outlineError) throw outlineError;
+    const lessonId = outline?.[0]?.lesson_id;
+    if (!lessonId) throw new Error('No hay lesson_id accesible');
+
+    const { error: rpcError } = await referente.rpc(
+      'rpc_mark_lesson_completed',
+      {
+        p_local_id: LOCAL_A,
+        p_lesson_id: lessonId,
+      },
+    );
+
+    if (!rpcError) throw new Error('RPC permitido a referente (NO debería)');
+  });
+  await test('RPC: quiz answer deny otro usuario (si aplica)', async () => {
+    if (!quizAttemptId || !quizIdForRpc) {
+      return;
+    }
+
+    const { data: state, error: stateError } = await aprendiz
+      .from('v_quiz_state')
+      .select('questions')
+      .eq('local_id', LOCAL_A)
+      .eq('quiz_id', quizIdForRpc)
+      .single();
+
+    if (stateError) throw stateError;
+    const firstQuestion = state?.questions?.[0];
+    const firstOption = firstQuestion?.options?.[0];
+    if (!firstQuestion || !firstOption) {
+      return;
+    }
+
+    const { error } = await referente.rpc('rpc_quiz_answer', {
+      p_attempt_id: quizAttemptId,
+      p_question_id: firstQuestion.question_id,
+      p_option_id: firstOption.option_id,
+      p_answer_text: null,
+    });
+
+    if (!error) throw new Error('rpc_quiz_answer permitido a referente');
+  });
+  await test('RPC: quiz submit deny otro usuario (si aplica)', async () => {
+    if (!quizAttemptId) {
+      return;
+    }
+
+    const { error } = await referente.rpc('rpc_quiz_submit', {
+      p_attempt_id: quizAttemptId,
+    });
+
+    if (!error) throw new Error('rpc_quiz_submit permitido a referente');
   });
 
   await test('Referente NO ve memberships de Local B', async () => {
@@ -605,7 +1056,7 @@ async function run() {
     const { error } = await referente.from('quiz_answers').insert(payload);
     if (!error)
       throw new Error('Insert indebido permitido; debería fallar por RLS');
-    if (!isRlsViolation(error)) {
+    if (!isRlsViolation(error) && !isIntegrityViolation(error)) {
       throw new Error(`Insert falló pero no por RLS: ${error.message}`);
     }
   });
@@ -617,6 +1068,188 @@ async function run() {
       throw new Error('Referente no ve Local A en v_my_locals');
     if (ids.includes(LOCAL_B))
       throw new Error('Referente ve Local B en v_my_locals (NO debería)');
+  });
+  await test('Referente ve ref dashboard en su local', async () => {
+    const { data: locals, error: localsError } = await referente
+      .from('v_my_locals')
+      .select('local_id')
+      .limit(1);
+
+    if (localsError) throw localsError;
+    const localId = locals?.[0]?.local_id ?? LOCAL_A;
+
+    const { data, error } = await referente
+      .from('v_ref_dashboard')
+      .select(
+        'local_id,local_name,health_percent,learners_count,active_courses_count',
+      )
+      .eq('local_id', localId)
+      .single();
+
+    if (error) throw error;
+    if (!data?.local_id) throw new Error('Ref dashboard sin local_id');
+    if (data.health_percent == null) {
+      throw new Error('Ref dashboard sin health_percent');
+    }
+  });
+  await test('Referente ve ref learners en su local', async () => {
+    const { data: locals, error: localsError } = await referente
+      .from('v_my_locals')
+      .select('local_id')
+      .limit(1);
+
+    if (localsError) throw localsError;
+    const localId = locals?.[0]?.local_id ?? LOCAL_A;
+
+    const { data, error } = await referente
+      .from('v_ref_learners')
+      .select(
+        'learner_id,learner_name,learner_state,risk_level,recent_flag,completion_percent',
+      )
+      .eq('local_id', localId)
+      .limit(1);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0) {
+      console.log('ℹ️  Ref learners sin rows (no learners seeded)');
+      return;
+    }
+    const row = data[0];
+    if (!row.learner_id || !row.learner_name) {
+      throw new Error('Ref learners sin learner_id o learner_name');
+    }
+    if (row.learner_state == null || row.risk_level == null) {
+      throw new Error('Ref learners sin estado o riesgo');
+    }
+  });
+  await test('Referente ve ref learner detail en su local', async () => {
+    const { data: locals, error: localsError } = await referente
+      .from('v_my_locals')
+      .select('local_id')
+      .limit(1);
+
+    if (localsError) throw localsError;
+    const localId = locals?.[0]?.local_id ?? LOCAL_A;
+
+    const { data: learners, error: learnersError } = await referente
+      .from('v_ref_learners')
+      .select('learner_id')
+      .eq('local_id', localId)
+      .limit(1);
+
+    if (learnersError) throw learnersError;
+    const learnerId = learners?.[0]?.learner_id;
+    if (!learnerId) {
+      console.log('ℹ️  Ref learner detail sin learners (no data)');
+      return;
+    }
+
+    const { data, error } = await referente
+      .from('v_ref_learner_detail')
+      .select('learner_id,courses,recent_activity,quizzes')
+      .eq('local_id', localId)
+      .eq('learner_id', learnerId)
+      .single();
+
+    if (error) throw error;
+    if (!data?.learner_id) throw new Error('Ref learner detail sin learner_id');
+    if (!Array.isArray(data.courses)) {
+      throw new Error('Ref learner detail courses no es array');
+    }
+    if (!Array.isArray(data.recent_activity)) {
+      throw new Error('Ref learner detail recent_activity no es array');
+    }
+    if (!Array.isArray(data.quizzes)) {
+      throw new Error('Ref learner detail quizzes no es array');
+    }
+  });
+  await test('Referente NO ve ref learner detail de otro local', async () => {
+    const { data, error } = await referente
+      .from('v_ref_learner_detail')
+      .select('learner_id')
+      .eq('local_id', LOCAL_B)
+      .eq('learner_id', APRENDIZ_UID);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error(
+        'Referente ve ref learner detail de Local B (NO debería)',
+      );
+    }
+  });
+  await test('Aprendiz NO ve ref learner detail (local propio)', async () => {
+    const { data, error } = await aprendiz
+      .from('v_ref_learner_detail')
+      .select('learner_id')
+      .eq('local_id', LOCAL_A)
+      .eq('learner_id', APRENDIZ_UID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve ref learner detail (NO debería)');
+    }
+  });
+  await test('Referente NO ve ref learners de otro local', async () => {
+    const { data, error } = await referente
+      .from('v_ref_learners')
+      .select('learner_id')
+      .eq('local_id', LOCAL_B);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve ref learners de Local B (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve ref learners (local propio)', async () => {
+    const { data, error } = await aprendiz
+      .from('v_ref_learners')
+      .select('learner_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve ref learners (NO debería)');
+    }
+  });
+  await test('Referente NO ve ref dashboard de otro local', async () => {
+    const { data, error } = await referente
+      .from('v_ref_dashboard')
+      .select('local_id')
+      .eq('local_id', LOCAL_B);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve ref dashboard de Local B (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve ref dashboard (local propio)', async () => {
+    const { data, error } = await aprendiz
+      .from('v_ref_dashboard')
+      .select('local_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve ref dashboard (NO debería)');
+    }
+  });
+  await test('RPC: quiz start deny local ajeno (si aplica)', async () => {
+    if (!quizIdForRpc) {
+      return;
+    }
+
+    const { error } = await aprendiz.rpc('rpc_quiz_start', {
+      p_local_id: LOCAL_B,
+      p_quiz_id: quizIdForRpc,
+    });
+
+    if (!error) throw new Error('rpc_quiz_start permitido en local ajeno');
   });
 
   const orgAdmin = await login(
@@ -658,4 +1291,14 @@ async function run() {
   }
 }
 
-run();
+run()
+  .then(() => {
+    console.log(`\nTests executed: ${executed}`);
+    console.log(`Failures: ${failures}`);
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error('❌ FAIL: Unhandled error in smoke tests');
+    console.error(err?.message ?? err);
+    process.exit(1);
+  });

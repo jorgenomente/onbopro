@@ -772,3 +772,500 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Follow-ups**
 
 - None
+
+### 2026-01-05T23:42:32Z — learner dashboard contract
+
+**Goal**
+
+- Document learner dashboard contract aligned to v_learner_dashboard_courses
+
+**Docs consulted**
+
+- supabase/migrations/20260105101909_014_create_v_learner_dashboard_courses.sql
+
+**Files changed**
+
+- docs/screens/learner-dashboard.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added screen data contract with columns/types and UI states
+- Documented missing local_name gap and UI workaround
+
+**Validation**
+
+- [ ] Not run (docs-only)
+
+**Notes / decisions**
+
+- Columns/types derived from view definition in migrations
+
+**Follow-ups**
+
+- None
+
+### 2026-01-05T23:48:33Z — course outline UI
+
+**Goal**
+
+- Implement /l/[localId]/courses/[courseId] consuming v_course_outline
+
+**Docs consulted**
+
+- docs/screens/course-outline.md
+
+**Files changed**
+
+- app/l/[localId]/courses/[courseId]/page.tsx
+- app/l/[localId]/lessons/[lessonId]/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added course outline UI with grouped units, lesson list, and CTA
+- Added loading/empty/error states with retry
+- Added lesson player placeholder route
+
+**Validation**
+
+- [ ] Not run (UI-only change)
+
+**Notes / decisions**
+
+- Uses v_course_outline filtered by local_id and course_id
+
+**Follow-ups**
+
+- Wire Lesson Player once v_lesson_player UI is ready
+
+### 2026-01-05T23:53:36Z — lesson completion rpc + UI
+
+**Goal**
+
+- Enable safe lesson completion writes via RPC from Lesson Player
+
+**Docs consulted**
+
+- docs/screens/lesson-player.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260105235230_021_rpc_mark_lesson_completed.sql
+- app/l/[localId]/lessons/[lessonId]/page.tsx
+- docs/screens/lesson-player.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added rpc_mark_lesson_completed with aprendiz-only validation and active assignment checks
+- Enabled Lesson Player CTA to mark completion via RPC
+- Documented write path in contract
+
+**Validation**
+
+- [x] Ran scripts/rls-smoke-tests.mjs
+
+**Notes / decisions**
+
+- RPC is SECURITY DEFINER and checks membership + local_courses status
+
+**Follow-ups**
+
+- Consider adding a targeted smoke test for the RPC
+
+### 2026-01-05T23:56:37Z — rpc_mark_lesson_completed smoke tests
+
+**Goal**
+
+- Add RPC-specific tests for lesson completion writes
+
+**Docs consulted**
+
+- scripts/rls-smoke-tests.mjs
+
+**Files changed**
+
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added RPC happy path, idempotency, and deny cases
+
+**Validation**
+
+- [x] Ran scripts/rls-smoke-tests.mjs (completed; CLI timed out after output)
+
+**Notes / decisions**
+
+- Referente deny test runs after referente login
+
+**Follow-ups**
+
+- None
+
+### 2026-01-06T00:08:55Z — quiz RPCs + UI wiring
+
+**Goal**
+
+- Enable quiz start/answer/submit via RPCs and wire UI
+
+**Docs consulted**
+
+- docs/screens/quiz-player.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260106000520_022_rpc_quiz_start_answer_submit.sql
+- app/l/[localId]/quizzes/[quizId]/page.tsx
+- scripts/rls-smoke-tests.mjs
+- docs/screens/quiz-player.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added RPCs for quiz start, answer, and submit with validations
+- Wired quiz UI to RPCs and refetching
+- Added RPC smoke tests for start/answer/submit and deny cases
+
+**Validation**
+
+- [x] Ran scripts/rls-smoke-tests.mjs (completed; CLI timed out after output)
+
+**Notes / decisions**
+
+- Passing threshold set to score >= 70 until pass_percent exists
+
+**Follow-ups**
+
+- Consider exposing pass_percent in schema/view for configurable thresholds
+
+### 2026-01-06T00:14:59Z — quiz submit pass_percent fallback
+
+**Goal**
+
+- Prefer pass_percent when available for quiz submit, fallback to 70
+
+**Docs consulted**
+
+- docs/screens/quiz-player.md
+
+**Files changed**
+
+- supabase/migrations/20260106000520_022_rpc_quiz_start_answer_submit.sql
+- docs/screens/quiz-player.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added pass_percent lookup when column exists; fallback to 70
+- Documented fallback in quiz-player contract
+
+**Validation**
+
+- [ ] Not run (RPC change)
+
+**Notes / decisions**
+
+- Uses information_schema guard to avoid failing if pass_percent column is absent
+
+**Follow-ups**
+
+- Consider adding pass_percent to quizzes schema
+
+### 2026-01-06T00:15:49Z — update rpc_quiz_submit threshold
+
+**Goal**
+
+- Prefer pass_percent when available for quiz submit, fallback to 70
+
+**Docs consulted**
+
+- docs/screens/quiz-player.md
+
+**Files changed**
+
+- supabase/migrations/20260106001517_023_update_rpc_quiz_submit_pass_percent.sql
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Updated rpc_quiz_submit to use pass_percent when column exists
+
+**Validation**
+
+- [ ] Not run (RPC change)
+
+**Notes / decisions**
+
+- Information_schema guard avoids failing when pass_percent column is absent
+
+**Follow-ups**
+
+- Consider adding pass_percent to quizzes schema
+
+### 2026-01-06T00:18:20Z — quiz scoring smoke test
+
+**Goal**
+
+- Add scoring validation for quiz submit when fixtures provide correct/incorrect options
+
+**Docs consulted**
+
+- docs/testing-reference.md
+
+**Files changed**
+
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added scoring test that discovers a quiz with correct/incorrect options
+- Skips test if fixtures do not include such a quiz
+
+**Validation**
+
+- [x] Ran scripts/rls-smoke-tests.mjs
+
+**Notes / decisions**
+
+- Test is non-critical and logs a skip message when no suitable quiz is found
+
+**Follow-ups**
+
+- Add a stable quiz fixture with known correct/incorrect options in docs/testing-reference.md
+
+### 2026-01-06T02:00:00Z — wire quiz ids into course outline
+
+**Goal**
+
+- Expose unit/course quiz ids in v_course_outline for navigation from outline to quiz player
+
+**Docs consulted**
+
+- docs/quiz-outline-wiring-report.md
+- docs/screens/course-outline.md
+- docs/screens/v_course_outline.md
+
+**Files changed**
+
+- supabase/migrations/20260106020000_024_extend_v_course_outline_with_quiz_ids.sql
+- docs/screens/course-outline.md
+- docs/screens/v_course_outline.md
+- app/l/[localId]/courses/[courseId]/page.tsx
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added unit_quiz_id and course_quiz_id to v_course_outline
+- Rendered quiz navigation buttons in Course Outline UI
+- Added non-blocking smoke test for quiz ids in outline
+
+**Validation**
+
+- [ ] Not run (DB/UI changes)
+
+### 2026-01-06T00:50:28Z — apply outline quiz wiring + smoke tests
+
+**Goal**
+
+- Apply v_course_outline quiz wiring, verify view output, and validate smoke tests
+
+**Docs consulted**
+
+- docs/quiz-outline-wiring-report.md
+- docs/screens/course-outline.md
+
+**Files changed**
+
+- supabase/migrations/20260106020000_024_extend_v_course_outline_with_quiz_ids.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens/course-outline.md
+- docs/ops-log.md
+- docs/screens/v_course_outline.md (removed)
+
+**Changes (summary)**
+
+- Reordered columns in view to avoid rename errors and applied migration
+- Smoke test now discovers local/course dynamically and logs when no quiz is seeded
+- Removed duplicate screen contract file so course-outline.md is the single source of truth
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `select unit_quiz_id, course_quiz_id from public.v_course_outline limit 5;`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 41, Failures: 0)
+
+### 2026-01-06T00:58:22Z — dev quiz seed for outline
+
+**Goal**
+
+- Provide a DEV-only seed to create unit/final quizzes for end-to-end UI testing
+
+**Files changed**
+
+- supabase/seed/dev_quiz_seed.sql
+- docs/testing-reference.md
+- docs/ops-log.md
+
+**Execution**
+
+- `psql "$SUPABASE_DB_URL" -f supabase/seed/dev_quiz_seed.sql`
+
+**Expected UI behavior**
+
+- Outline shows "Hacer evaluacion" and "Evaluacion final del curso"
+- Quiz Player loads and supports start/answer/submit flow
+
+### 2026-01-06T01:05:50Z — Lote 1 closed (Learner)
+
+**Goal**
+
+- Close Lote 1 with auditable coverage, smoke tests, and dev seed references
+
+**Screens covered**
+
+- /l/[localId]/dashboard (v_learner_dashboard_courses)
+- /l/[localId]/courses/[courseId] (v_course_outline)
+- /l/[localId]/lessons/[lessonId] (v_lesson_player)
+- /l/[localId]/quizzes/[quizId] (v_quiz_state)
+
+**RPCs**
+
+- rpc_mark_lesson_completed
+- rpc_quiz_start
+- rpc_quiz_answer
+- rpc_quiz_submit
+
+**Smoke tests**
+
+- `node scripts/rls-smoke-tests.mjs` (deterministic exit 0/1)
+
+**Dev seed**
+
+- `psql "$SUPABASE_DB_URL" -f supabase/seed/dev_quiz_seed.sql`
+
+### 2026-01-06T01:18:45Z — add ref dashboard view + RLS smoke tests
+
+**Goal**
+
+- Implement v_ref_dashboard view and add RLS smoke tests for Referente read access
+
+**Files changed**
+
+- supabase/migrations/20260106023000_025_create_v_ref_dashboard.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [ ] Not run (pending db push + smoke tests)
+
+### 2026-01-06T01:28:30Z — apply ref dashboard scope + validate
+
+**Goal**
+
+- Apply ref dashboard scope update, run smoke tests, and validate view output
+
+**Files changed**
+
+- supabase/migrations/20260106024500_026_update_v_ref_dashboard_scope.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 44, Failures: 0)
+- [x] Sanity query (referente local_id: 2580e080-bf31-41c0-8242-7d90b070d060)
+
+### 2026-01-06T01:33:08Z — apply ref learners view + validate
+
+**Goal**
+
+- Apply v_ref_learners, run smoke tests, and validate roster output
+
+**Files changed**
+
+- supabase/migrations/20260106030500_027_create_v_ref_learners.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 47, Failures: 0)
+- [x] Sanity query (referente local_id: 2580e080-bf31-41c0-8242-7d90b070d060)
+
+### 2026-01-06T01:44:08Z — add ref learner detail view + smoke tests
+
+**Goal**
+
+- Create v_ref_learner_detail and add RLS smoke tests for referente-only access
+
+**Files changed**
+
+- supabase/migrations/20260106034000_028_create_v_ref_learner_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [ ] Not run (pending db push + smoke tests)
+
+### 2026-01-06T01:48:33Z — apply ref learner detail view + validate
+
+**Goal**
+
+- Apply v_ref_learner_detail, run smoke tests, and validate output
+
+**Files changed**
+
+- supabase/migrations/20260106034000_028_create_v_ref_learner_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 50, Failures: 0)
+- [x] Sanity query (referente local_id: 2580e080-bf31-41c0-8242-7d90b070d060, learner_id: c877ae1f-f2be-4697-a227-62778565305e)
+
+### 2026-01-06T02:02:09Z — Lote 2 (Referente) CLOSED
+
+**Goal**
+
+- Close Lote 2 with documented views, tests, and UI routes
+
+**Data / views**
+
+- v_ref_dashboard (20260106024500_026_update_v_ref_dashboard_scope.sql)
+- v_ref_learners (20260106030500_027_create_v_ref_learners.sql)
+- v_ref_learner_detail (20260106034000_028_create_v_ref_learner_detail.sql)
+
+**RLS scope**
+
+- Enforced in view definitions (referente-only + local-only); no additional policies
+
+**Tests**
+
+- `node scripts/rls-smoke-tests.mjs` (Tests executed: 50, Failures: 0)
+
+**UI routes**
+
+- /l/[localId]/ref/dashboard
+- /l/[localId]/ref/learners
+- /l/[localId]/ref/learners/[learnerId]
+
+**Notes**
+
+- Feedback (WRITE) deferred to P1
