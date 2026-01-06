@@ -263,6 +263,39 @@ Reglas críticas:
 
 ---
 
+### quiz_questions
+
+Preguntas del quiz.
+
+Campos:
+
+- `prompt`
+- `position`
+- `archived_at` (soft delete para editor)
+
+Reglas:
+
+- `unique(quiz_id, position)`
+- preguntas archivadas no se muestran en vistas del editor
+
+---
+
+### quiz_options
+
+Opciones de respuesta por pregunta.
+
+Campos:
+
+- `option_text`
+- `is_correct`
+- `position`
+
+Reglas:
+
+- `unique(question_id, position)`
+
+---
+
 ## 8. Asignación de cursos: `local_courses`
 
 Define **qué cursos ve un local**.
@@ -273,11 +306,19 @@ Campos:
 - `course_id`
 - `status`: `active | archived`
 - `assigned_at`
+- `assigned_by` (nullable)
+- `archived_at` / `archived_by` (nullable)
+- `created_at` / `created_by` (audit)
+- `updated_at` / `updated_by` (audit)
 
 Reglas:
 
 - PK compuesta `(local_id, course_id)`
 - Un aprendiz ve un curso **solo si existe esta fila activa**.
+- Desasignar = `status='archived'` + `archived_at` (sin borrar).
+- Batch assign:
+  - El set final de cursos activos se aplica con `rpc_set_local_courses`.
+  - El RPC archiva removidos y reactiva/crea los deseados.
 
 ---
 

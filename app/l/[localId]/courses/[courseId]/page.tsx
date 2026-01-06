@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { Card } from '@/components/learner/Card';
+import { LearnerShell } from '@/components/learner/LearnerShell';
+import { PageHeader } from '@/components/learner/PageHeader';
+import { StateBlock } from '@/components/learner/StateBlock';
+import { formatStatusLabel } from '@/lib/learner/formatters';
 
 type OutlineRow = {
   local_id: string;
@@ -153,152 +158,159 @@ export default function CourseOutlinePage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-4xl">
-        <header className="flex flex-col gap-4">
-          <div>
-            <p className="text-xs tracking-wide text-zinc-500 uppercase">
-              Curso
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
-              {courseTitle}
-            </h1>
-          </div>
+    <LearnerShell maxWidthClass="max-w-4xl">
+      <PageHeader label="Curso" title={courseTitle} />
 
-          {!loading && rows.length > 0 && (
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-500">Progreso</span>
-                <span className="text-sm font-semibold text-zinc-900">
-                  {progressPercent}%
-                </span>
-              </div>
-              <div className="mt-3 h-2 w-full rounded-full bg-zinc-100">
-                <div
-                  className="h-2 rounded-full bg-zinc-900"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-zinc-500">
-                {completedLessons}/{totalLessons} lecciones completadas
-              </p>
+      {!loading && rows.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <Card className="p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-500">Progreso</span>
+              <span className="text-sm font-semibold text-zinc-900">
+                {progressPercent}%
+              </span>
             </div>
-          )}
-
-          {!loading && rows.length > 0 && (
-            <button
-              className="w-full rounded-2xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800"
-              type="button"
-              onClick={handleContinue}
-              disabled={!nextLessonId}
-            >
-              Continuar
-            </button>
-          )}
-        </header>
-
-        {loading && (
-          <div className="mt-8 space-y-4">
-            {Array.from({ length: 4 }).map((_, index) => (
+            <div className="mt-3 h-2 w-full rounded-full bg-zinc-100">
               <div
-                key={`skeleton-${index}`}
-                className="h-24 animate-pulse rounded-2xl bg-white p-5"
+                className="h-2 rounded-full bg-zinc-900"
+                style={{ width: `${progressPercent}%` }}
               />
-            ))}
-          </div>
-        )}
-
-        {!loading && error && (
-          <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-red-600">Error: {error}</p>
-            <button
-              className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-              onClick={fetchOutline}
-              type="button"
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && rows.length === 0 && (
-          <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-zinc-600">
-              Este curso no esta disponible o no tiene contenido.
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              {completedLessons}/{totalLessons} lecciones completadas
             </p>
-          </div>
-        )}
+          </Card>
 
-        {!loading && !error && rows.length > 0 && (
-          <div className="mt-8 space-y-6">
-            {groupedUnits.map((unit) => (
-              <div
-                key={unit.unit_id}
-                className="rounded-2xl bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                      Unidad {unit.unit_position}
-                    </p>
-                    <h2 className="mt-1 text-lg font-semibold text-zinc-900">
-                      {unit.unit_title}
-                    </h2>
-                  </div>
-                  <div className="flex items-center gap-3 text-right text-xs text-zinc-500">
-                    {unit.unit_quiz_id && (
-                      <button
-                        className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                        type="button"
-                        onClick={() =>
-                          router.push(
-                            `/l/${localId}/quizzes/${unit.unit_quiz_id}`,
-                          )
-                        }
-                      >
-                        Hacer evaluacion
-                      </button>
-                    )}
-                    <span>{unit.unit_progress_percent}%</span>
-                  </div>
-                </div>
+          <button
+            className="w-full rounded-2xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+            type="button"
+            onClick={handleContinue}
+            disabled={!nextLessonId}
+          >
+            Continuar
+          </button>
+        </div>
+      )}
 
-                <ul className="mt-4 space-y-3">
-                  {unit.lessons.map((lesson) => (
-                    <li key={lesson.lesson_id}>
-                      <button
-                        className="flex w-full items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 text-left text-sm text-zinc-700 hover:border-zinc-300"
-                        onClick={() =>
-                          router.push(
-                            `/l/${localId}/lessons/${lesson.lesson_id}`,
-                          )
-                        }
-                        type="button"
-                      >
-                        <span>{lesson.lesson_title}</span>
-                        <span className="text-xs tracking-wide text-zinc-500 uppercase">
-                          {lesson.lesson_status}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-            {courseQuizId && (
+      {loading && (
+        <div className="mt-8 space-y-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Card key={`skeleton-${index}`} className="h-24 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="mt-8">
+          <StateBlock
+            tone="error"
+            title="No pudimos cargar la información."
+            description={`Error: ${error}`}
+            actions={
+              <>
+                <button
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                  onClick={fetchOutline}
+                  type="button"
+                >
+                  Reintentar
+                </button>
+                <button
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                  onClick={() => router.back()}
+                  type="button"
+                >
+                  Volver
+                </button>
+              </>
+            }
+          />
+        </div>
+      )}
+
+      {!loading && !error && rows.length === 0 && (
+        <div className="mt-8">
+          <StateBlock
+            tone="empty"
+            title="Este curso no está disponible."
+            description="Todavía no tiene contenido publicado para tu local."
+            actions={
               <button
-                className="w-full rounded-2xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-800 hover:border-zinc-300"
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                onClick={() => router.back()}
                 type="button"
-                onClick={() =>
-                  router.push(`/l/${localId}/quizzes/${courseQuizId}`)
-                }
               >
-                Evaluacion final del curso
+                Volver
               </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+            }
+          />
+        </div>
+      )}
+
+      {!loading && !error && rows.length > 0 && (
+        <div className="mt-8 space-y-6">
+          {groupedUnits.map((unit) => (
+            <Card key={unit.unit_id} className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs tracking-wide text-zinc-500 uppercase">
+                    Unidad {unit.unit_position}
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-zinc-900">
+                    {unit.unit_title}
+                  </h2>
+                </div>
+                <div className="flex items-center gap-3 text-right text-xs text-zinc-500">
+                  {unit.unit_quiz_id && (
+                    <button
+                      className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                      type="button"
+                      onClick={() =>
+                        router.push(
+                          `/l/${localId}/quizzes/${unit.unit_quiz_id}`,
+                        )
+                      }
+                    >
+                      Hacer evaluación
+                    </button>
+                  )}
+                  <span>{unit.unit_progress_percent}%</span>
+                </div>
+              </div>
+
+              <ul className="mt-4 space-y-3">
+                {unit.lessons.map((lesson) => (
+                  <li key={lesson.lesson_id}>
+                    <button
+                      className="flex w-full items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 text-left text-sm text-zinc-700 hover:border-zinc-300"
+                      onClick={() =>
+                        router.push(`/l/${localId}/lessons/${lesson.lesson_id}`)
+                      }
+                      type="button"
+                    >
+                      <span>{lesson.lesson_title}</span>
+                      <span className="text-xs text-zinc-500">
+                        {formatStatusLabel(lesson.lesson_status)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ))}
+          {courseQuizId && (
+            <button
+              className="w-full rounded-2xl border border-zinc-200 px-5 py-3 text-sm font-semibold text-zinc-800 hover:border-zinc-300"
+              type="button"
+              onClick={() =>
+                router.push(`/l/${localId}/quizzes/${courseQuizId}`)
+              }
+            >
+              Evaluación final del curso
+            </button>
+          )}
+        </div>
+      )}
+    </LearnerShell>
   );
 }

@@ -1606,6 +1606,23 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 - [x] `npx supabase db push`
 - [x] `node scripts/rls-smoke-tests.mjs`
 
+### 2026-01-06T13:55:44Z — dev seed alert scenarios
+
+**Goal**
+
+- Add deterministic dev-only seed to populate org alerts scenarios
+
+**Files changed**
+
+- scripts/dev-seed-alert-scenarios.mjs
+- docs/ops-log.md
+
+**Notes**
+
+- Dev-only: requires `SUPABASE_SERVICE_ROLE_KEY`
+- Refuses hosted Supabase unless `ALLOW_PROD_SEED=true`
+- Run: `node scripts/dev-seed-alert-scenarios.mjs`
+
 ### 2026-01-06T15:54:28Z — fix RPC reorder conflicts
 
 **Goal**
@@ -1629,19 +1646,228 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 - [x] `npx supabase db push`
 - [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 86, Failures: 0)
 
-### 2026-01-06T13:55:44Z — dev seed alert scenarios
+### 2026-01-06T17:16:45Z — quiz builder contracts + screen map
 
 **Goal**
 
-- Add deterministic dev-only seed to populate org alerts scenarios
+- Add org quiz editor contract and outline navigation notes
 
 **Files changed**
 
-- scripts/dev-seed-alert-scenarios.mjs
+- docs/screens/org-quiz-editor.md
+- docs/screens/org-course-outline.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+### 2026-01-06T17:27:38Z — v_org_quiz_detail + smoke tests
+
+**Goal**
+
+- Add org quiz editor view and RLS smoke tests
+
+**Files changed**
+
+- supabase/migrations/20260106101500_049_create_v_org_quiz_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T17:36:01Z — quiz editor RPCs + soft delete
+
+**Goal**
+
+- Add quiz editor RPCs (questions/choices/reorder/correct) and soft delete questions
+
+**Files changed**
+
+- supabase/migrations/20260106103000_050_quiz_editor_rpcs.sql
+- scripts/rls-smoke-tests.mjs
+- docs/schema-guide.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T17:40:49Z — outline quiz editor wiring
+
+**Goal**
+
+- Add Outline CTAs linking to quiz editor for unit and final quizzes
+
+**Files changed**
+
+- app/org/courses/[courseId]/outline/page.tsx
+- docs/ops-log.md
+
+### 2026-01-06T17:45:07Z — quiz editor UI
+
+**Goal**
+
+- Implement quiz editor UI for /org/courses/[courseId]/quizzes/[quizId]/edit
+
+**Files changed**
+
+- app/org/courses/[courseId]/quizzes/[quizId]/edit/page.tsx
 - docs/ops-log.md
 
 **Notes**
 
-- Dev-only: requires `SUPABASE_SERVICE_ROLE_KEY`
-- Refuses hosted Supabase unless `ALLOW_PROD_SEED=true`
-- Run: `node scripts/dev-seed-alert-scenarios.mjs`
+- Reads from public.v_org_quiz_detail
+- Writes via quiz editor RPCs (update/create/reorder/archivar/correct)
+
+### 2026-01-06T17:49:13Z — create quiz RPCs + outline CTA
+
+**Goal**
+
+- Add RPCs to create unit/final quizzes and wire Outline CTAs
+
+**Files changed**
+
+- supabase/migrations/20260106105000_051_create_quiz_create_rpcs.sql
+- scripts/rls-smoke-tests.mjs
+- app/org/courses/[courseId]/outline/page.tsx
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T18:12:45Z — local course assignments base model
+
+**Goal**
+
+- Extend local_courses with audit fields for course assignments
+
+**Files changed**
+
+- supabase/migrations/20260106110500_052_extend_local_courses_audit_fields.sql
+- docs/schema-guide.md
+- docs/ops-log.md
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/integrity-rules.md
+- docs/rls-cheatsheet.md
+- docs/migrations-playbook.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+
+### 2026-01-06T18:18:21Z — org local courses view + contract
+
+**Goal**
+
+- Add org local courses screen contract and view
+
+**Files changed**
+
+- docs/screens/org-local-courses.md
+- supabase/migrations/20260106112000_053_create_v_org_local_courses.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T18:53:54Z — local courses assignment RPC
+
+**Goal**
+
+- Add batch assignment RPC for local_courses
+
+**Files changed**
+
+- supabase/migrations/20260106114000_054_local_courses_assignment_rpcs.sql
+- scripts/rls-smoke-tests.mjs
+- docs/schema-guide.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T18:58:04Z — local course assignment UI
+
+**Goal**
+
+- Implement /org/locals/[localId]/courses with batch save via rpc_set_local_courses
+
+**Files changed**
+
+- app/org/locals/[localId]/courses/page.tsx
+- docs/ops-log.md
+
+**Notes**
+
+- Reads from public.v_org_local_courses
+- Writes via rpc_set_local_courses with refetch
+
+### 2026-01-06T19:12:40Z — screens data map (Lote 0/1)
+
+**Goal**
+
+- Add Lote 0 and Lote 1 screens to the screens→views map
+
+**Files changed**
+
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+### 2026-01-06T19:20:10Z — enforce local membership in learner views
+
+**Goal**
+
+- Ensure learner views require local_memberships + local_courses.status='active'
+- Add assignment enforcement smoke tests for Aprendiz
+
+**Files changed**
+
+- supabase/migrations/20260106120000_055_update_learner_views_assignment_enforcement.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+### 2026-01-06T19:32:40Z — UI Refresh — Lote 1 Aprendiz (Player Refresh)
+
+**Goal**
+
+- UI-only refactor (no changes to views/RPCs)
+- Add reusable learner UI primitives and refresh Aprendiz screens
+
+**Files changed**
+
+- components/learner/LearnerShell.tsx
+- components/learner/Card.tsx
+- components/learner/PageHeader.tsx
+- components/learner/StateBlock.tsx
+- components/learner/InlineNotice.tsx
+- lib/learner/formatters.ts
+- app/l/[localId]/dashboard/page.tsx
+- app/l/[localId]/courses/[courseId]/page.tsx
+- app/l/[localId]/lessons/[lessonId]/page.tsx
+- app/l/[localId]/quizzes/[quizId]/page.tsx
+- docs/ops-log.md
+
+**Behavior highlights**
+
+- Unified loading/error/empty states via StateBlock
+- Human-readable status labels via formatter helpers
+- Sticky footer actions (Lesson/Quiz), mobile-first, with bottom padding
+- RPC feedback uses InlineNotice success/error messaging
+
+**Validation**
+
+- [x] `npm run lint`
+- [x] `npm run build`

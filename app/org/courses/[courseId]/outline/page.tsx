@@ -221,6 +221,58 @@ export default function OrgCourseOutlinePage() {
     setIsSaving(false);
   };
 
+  const handleCreateUnitQuiz = async (unitId: string) => {
+    if (!canSave) return;
+    setIsSaving(true);
+    setActionError(null);
+
+    const { data, error: rpcError } = await supabase.rpc(
+      'rpc_create_unit_quiz',
+      {
+        p_unit_id: unitId,
+      },
+    );
+
+    if (rpcError) {
+      setActionError(rpcError.message);
+      setIsSaving(false);
+      return;
+    }
+
+    if (data) {
+      router.push(`/org/courses/${courseId}/quizzes/${data}/edit`);
+    } else {
+      await refetchOutline();
+    }
+    setIsSaving(false);
+  };
+
+  const handleCreateFinalQuiz = async () => {
+    if (!canSave || !courseId) return;
+    setIsSaving(true);
+    setActionError(null);
+
+    const { data, error: rpcError } = await supabase.rpc(
+      'rpc_create_final_quiz',
+      {
+        p_course_id: courseId,
+      },
+    );
+
+    if (rpcError) {
+      setActionError(rpcError.message);
+      setIsSaving(false);
+      return;
+    }
+
+    if (data) {
+      router.push(`/org/courses/${courseId}/quizzes/${data}/edit`);
+    } else {
+      await refetchOutline();
+    }
+    setIsSaving(false);
+  };
+
   const handleEditLesson = (lessonId: string) => {
     if (!courseId) return;
     router.push(`/org/courses/${courseId}/lessons/${lessonId}/edit`);
@@ -404,15 +456,35 @@ export default function OrgCourseOutlinePage() {
                         + Lección
                       </button>
                       {unit.unit_quiz && (
-                        <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-600">
-                          <p className="font-semibold text-zinc-700">
-                            Quiz de la unidad
-                          </p>
-                          <p className="mt-1 text-[11px] text-zinc-500">
-                            {unit.unit_quiz.questions_count} preguntas ·{' '}
-                            {unit.unit_quiz.pass_score_pct}% aprobación
-                          </p>
+                        <div className="flex items-center justify-between gap-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-600">
+                          <div>
+                            <p className="font-semibold text-zinc-700">
+                              Quiz de la unidad
+                            </p>
+                            <p className="mt-1 text-[11px] text-zinc-500">
+                              {unit.unit_quiz.questions_count} preguntas ·{' '}
+                              {unit.unit_quiz.pass_score_pct}% aprobación
+                            </p>
+                          </div>
+                          <Link
+                            className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
+                            href={`/org/courses/${courseId}/quizzes/${unit.unit_quiz.quiz_id}/edit`}
+                          >
+                            Editar quiz
+                          </Link>
                         </div>
+                      )}
+                      {!unit.unit_quiz && (
+                        <button
+                          className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-left text-xs font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-400"
+                          type="button"
+                          disabled={!canSave}
+                          onClick={() =>
+                            void handleCreateUnitQuiz(unit.unit_id)
+                          }
+                        >
+                          + Crear quiz
+                        </button>
                       )}
                     </div>
                   </div>
@@ -516,13 +588,35 @@ export default function OrgCourseOutlinePage() {
                 <h3 className="text-lg font-semibold text-zinc-900">
                   Evaluación final
                 </h3>
-                <p className="mt-2 text-sm text-zinc-600">
-                  {row.final_quiz.title}
-                </p>
-                <p className="mt-2 text-xs text-zinc-500">
-                  {row.final_quiz.questions_count} preguntas ·{' '}
-                  {row.final_quiz.pass_score_pct}% aprobación
-                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-zinc-600">
+                      {row.final_quiz.title}
+                    </p>
+                    <p className="mt-2 text-xs text-zinc-500">
+                      {row.final_quiz.questions_count} preguntas ·{' '}
+                      {row.final_quiz.pass_score_pct}% aprobación
+                    </p>
+                  </div>
+                  <Link
+                    className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
+                    href={`/org/courses/${courseId}/quizzes/${row.final_quiz.quiz_id}/edit`}
+                  >
+                    Editar quiz
+                  </Link>
+                </div>
+              </section>
+            )}
+            {!row.final_quiz && (
+              <section className="mt-8 rounded-2xl border border-dashed border-zinc-200 bg-white p-5 text-sm text-zinc-600 shadow-sm">
+                <button
+                  className="rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-400"
+                  type="button"
+                  disabled={!canSave}
+                  onClick={() => void handleCreateFinalQuiz()}
+                >
+                  + Crear evaluación final
+                </button>
               </section>
             )}
           </>

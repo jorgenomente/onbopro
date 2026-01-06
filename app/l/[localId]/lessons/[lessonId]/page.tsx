@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { Card } from '@/components/learner/Card';
+import { InlineNotice } from '@/components/learner/InlineNotice';
+import { LearnerShell } from '@/components/learner/LearnerShell';
+import { StateBlock } from '@/components/learner/StateBlock';
+import { formatStatusLabel } from '@/lib/learner/formatters';
 
 type LessonRow = {
   local_id: string;
@@ -97,7 +102,7 @@ export default function LessonPlaceholderPage() {
 
   const statusLabel = useMemo(() => {
     if (!lesson) return '';
-    return lesson.is_completed ? 'Completada' : 'Pendiente';
+    return formatStatusLabel(lesson.is_completed ? 'completed' : 'pending');
   }, [lesson]);
 
   const renderContent = () => {
@@ -179,100 +184,119 @@ export default function LessonPlaceholderPage() {
       return;
     }
 
-    setMarkSuccess('Leccion marcada como completada.');
+    setMarkSuccess('Lección marcada como completada.');
     await fetchLesson();
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-3xl">
-        {loading && (
-          <div className="space-y-4">
-            <div className="h-8 w-2/3 animate-pulse rounded-2xl bg-white" />
-            <div className="h-48 animate-pulse rounded-2xl bg-white" />
-            <div className="h-24 animate-pulse rounded-2xl bg-white" />
-          </div>
-        )}
+    <LearnerShell maxWidthClass="max-w-3xl" paddedBottom>
+      {loading && (
+        <div className="space-y-4">
+          <Card className="h-8 w-2/3 animate-pulse" />
+          <Card className="h-48 animate-pulse" />
+          <Card className="h-24 animate-pulse" />
+        </div>
+      )}
 
-        {!loading && error && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-red-600">Error: {error}</p>
-            <button
-              className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-              onClick={fetchLesson}
-              type="button"
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && !lesson && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-zinc-600">
-              No tenes acceso a esta leccion o no existe.
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && lesson && (
-          <div className="space-y-6">
-            <header className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                    {lesson.course_title} · {lesson.unit_title}
-                  </p>
-                  <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
-                    {lesson.lesson_title}
-                  </h1>
-                </div>
-                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
-                  {statusLabel}
-                </span>
-              </div>
-            </header>
-
-            <section className="rounded-2xl bg-white p-6 shadow-sm">
-              {renderContent()}
-            </section>
-
-            <section className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-zinc-600">
-                  {lesson.is_completed
-                    ? 'Leccion completada.'
-                    : 'Marca esta leccion como completada.'}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <button
-                    className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    type="button"
-                    onClick={handleMarkComplete}
-                    disabled={!lesson.can_mark_complete || marking}
-                  >
-                    {marking ? 'Guardando...' : 'Marcar como completada'}
-                  </button>
-                  {markError ? (
-                    <span className="text-xs text-red-600">{markError}</span>
-                  ) : null}
-                  {markSuccess ? (
-                    <span className="text-xs text-emerald-600">
-                      {markSuccess}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
-            <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {!loading && error && (
+        <StateBlock
+          tone="error"
+          title="No pudimos cargar la información."
+          description={`Error: ${error}`}
+          actions={
+            <>
               <button
                 className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-                onClick={handleBack}
+                onClick={fetchLesson}
                 type="button"
               >
-                Volver al curso
+                Reintentar
               </button>
+              <button
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                onClick={() => router.back()}
+                type="button"
+              >
+                Volver
+              </button>
+            </>
+          }
+        />
+      )}
+
+      {!loading && !error && !lesson && (
+        <StateBlock
+          tone="empty"
+          title="No tenés acceso a esta lección."
+          description="Puede que el contenido todavía no esté disponible."
+          actions={
+            <button
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+              onClick={() => router.back()}
+              type="button"
+            >
+              Volver
+            </button>
+          }
+        />
+      )}
+
+      {!loading && !error && lesson && (
+        <div className="space-y-6">
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs tracking-wide text-zinc-500 uppercase">
+                  {lesson.course_title} · {lesson.unit_title}
+                </p>
+                <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {lesson.lesson_title}
+                </h1>
+              </div>
+              <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
+                {statusLabel}
+              </span>
+            </div>
+          </Card>
+
+          <Card>{renderContent()}</Card>
+
+          {marking ? (
+            <InlineNotice tone="info">Guardando cambios…</InlineNotice>
+          ) : null}
+          {markError ? (
+            <InlineNotice tone="error">{markError}</InlineNotice>
+          ) : null}
+          {markSuccess ? (
+            <InlineNotice tone="success">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>{markSuccess}</span>
+                {lesson.next_lesson_id ? (
+                  <button
+                    className="rounded-lg border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300"
+                    type="button"
+                    onClick={handleNext}
+                  >
+                    Ir a la siguiente
+                  </button>
+                ) : null}
+              </div>
+            </InlineNotice>
+          ) : null}
+        </div>
+      )}
+
+      {!loading && !error && lesson && (
+        <div className="fixed right-0 bottom-0 left-0 border-t border-zinc-200 bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+              onClick={handleBack}
+              type="button"
+            >
+              Volver al curso
+            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex gap-2">
                 <button
                   className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300 disabled:opacity-50"
@@ -291,10 +315,18 @@ export default function LessonPlaceholderPage() {
                   Siguiente
                 </button>
               </div>
-            </footer>
+              <button
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                type="button"
+                onClick={handleMarkComplete}
+                disabled={!lesson.can_mark_complete || marking}
+              >
+                {marking ? 'Guardando…' : 'Marcar como completada'}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </LearnerShell>
   );
 }

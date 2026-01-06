@@ -232,8 +232,13 @@ async function run() {
     process.env.TEST_APRENDIZ_EMAIL,
     process.env.TEST_APRENDIZ_PASSWORD,
   );
+  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let quizAttemptId = null;
   let quizIdForRpc = null;
+  let orgQuizId = null;
+  let unassignedCourseId = null;
+  let unassignedLessonId = null;
+  let unassignedQuizId = null;
 
   await test('Aprendiz ve SOLO su local', async () => {
     const { data, error } = await aprendiz.from('locals').select('id,name');
@@ -1307,6 +1312,29 @@ async function run() {
       throw new Error('Referente ve org courses (NO debería)');
     }
   });
+  await test('Referente NO puede setear cursos de local (RPC)', async () => {
+    const { error } = await referente.rpc('rpc_set_local_courses', {
+      p_local_id: LOCAL_A,
+      p_course_ids: [COURSE_ID],
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo setear cursos (NO debería)');
+    }
+  });
+  await test('Referente NO ve org local courses', async () => {
+    const { data, error } = await referente
+      .from('v_org_local_courses')
+      .select('course_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org local courses (NO debería)');
+    }
+  });
   await test('Referente NO ve org course outline', async () => {
     const { data, error } = await referente
       .from('v_org_course_outline')
@@ -1318,6 +1346,45 @@ async function run() {
     }
     if ((data ?? []).length > 0) {
       throw new Error('Referente ve org course outline (NO debería)');
+    }
+  });
+  await test('Referente NO ve org quiz detail', async () => {
+    const quizId = orgQuizId ?? '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await referente
+      .from('v_org_quiz_detail')
+      .select('quiz_id')
+      .eq('quiz_id', quizId);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org quiz detail (NO debería)');
+    }
+  });
+  await test('Referente NO puede editar quiz (RPC)', async () => {
+    if (!orgQuizId) {
+      console.log('ℹ️  Referente quiz RPC sin quiz_id (no data)');
+      return;
+    }
+    const { error } = await referente.rpc('rpc_update_quiz_metadata', {
+      p_quiz_id: orgQuizId,
+      p_title: 'Referente update',
+      p_description: null,
+      p_pass_score_pct: null,
+      p_shuffle_questions: null,
+      p_show_correct_answers: null,
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo editar quiz (NO debería)');
+    }
+  });
+  await test('Referente NO puede crear quiz (RPC)', async () => {
+    const { error } = await referente.rpc('rpc_create_final_quiz', {
+      p_course_id: COURSE_ID,
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo crear quiz (NO debería)');
     }
   });
   await test('Referente NO ve org lesson detail', async () => {
@@ -1383,6 +1450,29 @@ async function run() {
       throw new Error('Aprendiz ve org courses (NO debería)');
     }
   });
+  await test('Aprendiz NO puede setear cursos de local (RPC)', async () => {
+    const { error } = await aprendiz.rpc('rpc_set_local_courses', {
+      p_local_id: LOCAL_A,
+      p_course_ids: [COURSE_ID],
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo setear cursos (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org local courses', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_local_courses')
+      .select('course_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org local courses (NO debería)');
+    }
+  });
   await test('Aprendiz NO ve org course outline', async () => {
     const { data, error } = await aprendiz
       .from('v_org_course_outline')
@@ -1394,6 +1484,45 @@ async function run() {
     }
     if ((data ?? []).length > 0) {
       throw new Error('Aprendiz ve org course outline (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org quiz detail', async () => {
+    const quizId = orgQuizId ?? '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await aprendiz
+      .from('v_org_quiz_detail')
+      .select('quiz_id')
+      .eq('quiz_id', quizId);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org quiz detail (NO debería)');
+    }
+  });
+  await test('Aprendiz NO puede editar quiz (RPC)', async () => {
+    if (!orgQuizId) {
+      console.log('ℹ️  Aprendiz quiz RPC sin quiz_id (no data)');
+      return;
+    }
+    const { error } = await aprendiz.rpc('rpc_update_quiz_metadata', {
+      p_quiz_id: orgQuizId,
+      p_title: 'Aprendiz update',
+      p_description: null,
+      p_pass_score_pct: null,
+      p_shuffle_questions: null,
+      p_show_correct_answers: null,
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo editar quiz (NO debería)');
+    }
+  });
+  await test('Aprendiz NO puede crear quiz (RPC)', async () => {
+    const { error } = await aprendiz.rpc('rpc_create_final_quiz', {
+      p_course_id: COURSE_ID,
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo crear quiz (NO debería)');
     }
   });
   await test('Aprendiz NO ve org lesson detail', async () => {
@@ -1420,6 +1549,63 @@ async function run() {
       throw new Error('Aprendiz ve org local detail (NO debería)');
     }
   });
+  await test('Anon NO ve org quiz detail', async () => {
+    const quizId = orgQuizId ?? '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await anon
+      .from('v_org_quiz_detail')
+      .select('quiz_id')
+      .eq('quiz_id', quizId);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve org quiz detail (NO debería)');
+    }
+  });
+  await test('Anon NO puede editar quiz (RPC)', async () => {
+    const quizId = orgQuizId ?? '00000000-0000-0000-0000-000000000000';
+    const { error } = await anon.rpc('rpc_update_quiz_metadata', {
+      p_quiz_id: quizId,
+      p_title: 'Anon update',
+      p_description: null,
+      p_pass_score_pct: null,
+      p_shuffle_questions: null,
+      p_show_correct_answers: null,
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo editar quiz (NO debería)');
+    }
+  });
+  await test('Anon NO puede crear quiz (RPC)', async () => {
+    const { error } = await anon.rpc('rpc_create_final_quiz', {
+      p_course_id: COURSE_ID,
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo crear quiz (NO debería)');
+    }
+  });
+  await test('Anon NO puede setear cursos de local (RPC)', async () => {
+    const { error } = await anon.rpc('rpc_set_local_courses', {
+      p_local_id: LOCAL_A,
+      p_course_ids: [COURSE_ID],
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo setear cursos (NO debería)');
+    }
+  });
+  await test('Anon NO ve org local courses', async () => {
+    const { data, error } = await anon
+      .from('v_org_local_courses')
+      .select('course_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve org local courses (NO debería)');
+    }
+  });
   await test('RPC: quiz start deny local ajeno (si aplica)', async () => {
     if (!quizIdForRpc) {
       return;
@@ -1437,6 +1623,104 @@ async function run() {
     process.env.TEST_ORGADMIN_EMAIL,
     process.env.TEST_ORGADMIN_PASSWORD,
   );
+  await test('Org admin detecta curso no asignado (setup)', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_local_courses')
+      .select('course_id, is_assigned')
+      .eq('local_id', LOCAL_A)
+      .eq('is_assigned', false)
+      .limit(1);
+
+    if (error) throw error;
+    unassignedCourseId = data?.[0]?.course_id ?? null;
+    if (!unassignedCourseId) {
+      console.log('ℹ️  No hay curso no asignado en Local A (skip)');
+      return;
+    }
+
+    const { data: units, error: unitError } = await orgAdmin
+      .from('course_units')
+      .select('id')
+      .eq('course_id', unassignedCourseId);
+
+    if (unitError) throw unitError;
+    const unitIds = (units ?? []).map((row) => row.id);
+    if (unitIds.length > 0) {
+      const { data: lessons, error: lessonError } = await orgAdmin
+        .from('lessons')
+        .select('id')
+        .in('unit_id', unitIds)
+        .limit(1);
+
+      if (lessonError) throw lessonError;
+      unassignedLessonId = lessons?.[0]?.id ?? null;
+    }
+
+    const { data: quizzes, error: quizError } = await orgAdmin
+      .from('quizzes')
+      .select('id')
+      .eq('course_id', unassignedCourseId)
+      .limit(1);
+
+    if (quizError) throw quizError;
+    unassignedQuizId = quizzes?.[0]?.id ?? null;
+  });
+  await test('Aprendiz NO ve curso no asignado en dashboard (si aplica)', async () => {
+    if (!unassignedCourseId) return;
+
+    const { data, error } = await aprendiz
+      .from('v_learner_dashboard_courses')
+      .select('course_id')
+      .eq('local_id', LOCAL_A)
+      .eq('course_id', unassignedCourseId);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Ve curso no asignado en dashboard');
+    }
+  });
+  await test('Aprendiz NO ve outline de curso no asignado (si aplica)', async () => {
+    if (!unassignedCourseId) return;
+
+    const { data, error } = await aprendiz
+      .from('v_course_outline')
+      .select('course_id')
+      .eq('local_id', LOCAL_A)
+      .eq('course_id', unassignedCourseId);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Ve outline de curso no asignado');
+    }
+  });
+  await test('Aprendiz NO ve lesson player de curso no asignado (si aplica)', async () => {
+    if (!unassignedLessonId) return;
+
+    const { data, error } = await aprendiz
+      .from('v_lesson_player')
+      .select('lesson_id')
+      .eq('local_id', LOCAL_A)
+      .eq('lesson_id', unassignedLessonId);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Ve lesson player de curso no asignado');
+    }
+  });
+  await test('Aprendiz NO ve quiz state de curso no asignado (si aplica)', async () => {
+    if (!unassignedQuizId) return;
+
+    const { data, error } = await aprendiz
+      .from('v_quiz_state')
+      .select('quiz_id')
+      .eq('local_id', LOCAL_A)
+      .eq('quiz_id', unassignedQuizId);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Ve quiz state de curso no asignado');
+    }
+  });
   await test(
     'Org admin v_my_locals solo propios (o vacio)',
     async () => {
@@ -1543,6 +1827,82 @@ async function run() {
       throw new Error('org_courses assigned counts deben ser 0');
     }
   });
+  await test('Org admin ve org local courses', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_local_courses')
+      .select('org_id, local_id, course_id, is_assigned, assignment_status')
+      .eq('local_id', LOCAL_A);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0) {
+      console.log('ℹ️  Org local courses sin rows (no data)');
+      return;
+    }
+    const row = data[0];
+    if (!row?.org_id || !row?.local_id || !row?.course_id) {
+      throw new Error('org_local_courses sin ids requeridos');
+    }
+    if (row.is_assigned && row.assignment_status !== 'active') {
+      throw new Error('org_local_courses is_assigned inconsistente');
+    }
+  });
+  await test('Org admin puede setear cursos de local (RPC)', async () => {
+    const { data: catalog, error: catalogError } = await orgAdmin
+      .from('v_org_local_courses')
+      .select('course_id, is_assigned')
+      .eq('local_id', LOCAL_A);
+
+    if (catalogError) throw catalogError;
+    if ((catalog ?? []).length === 0) {
+      console.log('ℹ️  Org local courses sin catalogo (no data)');
+      return;
+    }
+
+    const original = (catalog ?? [])
+      .filter((row) => row.is_assigned)
+      .map((row) => row.course_id);
+    const desired = (catalog ?? [])
+      .map((row) => row.course_id)
+      .slice(0, Math.min(2, catalog.length));
+
+    if (desired.length === 0) {
+      console.log('ℹ️  Org local courses sin cursos para set');
+      return;
+    }
+
+    try {
+      const { error } = await orgAdmin.rpc('rpc_set_local_courses', {
+        p_local_id: LOCAL_A,
+        p_course_ids: desired,
+      });
+      if (error) throw error;
+
+      const { error: againError } = await orgAdmin.rpc(
+        'rpc_set_local_courses',
+        {
+          p_local_id: LOCAL_A,
+          p_course_ids: desired,
+        },
+      );
+      if (againError) throw againError;
+
+      const { data: after, error: afterError } = await orgAdmin
+        .from('v_org_local_courses')
+        .select('course_id, is_assigned')
+        .eq('local_id', LOCAL_A);
+
+      if (afterError) throw afterError;
+      const activeCount = (after ?? []).filter((row) => row.is_assigned).length;
+      if (activeCount !== desired.length) {
+        throw new Error('rpc_set_local_courses no aplico set deseado');
+      }
+    } finally {
+      await orgAdmin.rpc('rpc_set_local_courses', {
+        p_local_id: LOCAL_A,
+        p_course_ids: original,
+      });
+    }
+  });
   await test('Org admin ve org course outline', async () => {
     const { data, error } = await orgAdmin
       .from('v_org_course_outline')
@@ -1562,6 +1922,275 @@ async function run() {
     }
     if (data.units[0] && !Array.isArray(data.units[0].lessons)) {
       throw new Error('org_course_outline lessons no es array');
+    }
+    if (!orgQuizId) {
+      orgQuizId =
+        data.units?.[0]?.unit_quiz?.quiz_id ?? data.final_quiz?.quiz_id ?? null;
+    }
+  });
+  await test('Org admin ve org quiz detail (si aplica)', async () => {
+    if (!orgQuizId) {
+      console.log('ℹ️  Org quiz detail sin quiz_id (no data)');
+      return;
+    }
+    const { data, error } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select(
+        'quiz_id, quiz_type, questions, pass_score_pct, shuffle_questions, show_correct_answers',
+      )
+      .eq('quiz_id', orgQuizId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.quiz_id) {
+      throw new Error('org_quiz_detail sin quiz_id');
+    }
+    if (!['unit', 'final'].includes(data.quiz_type)) {
+      throw new Error('org_quiz_detail quiz_type invalido');
+    }
+    if (!Array.isArray(data.questions)) {
+      throw new Error('org_quiz_detail questions no es array');
+    }
+    if (data.questions[0] && !Array.isArray(data.questions[0].choices)) {
+      throw new Error('org_quiz_detail choices no es array');
+    }
+    if (data.pass_score_pct == null) {
+      throw new Error('org_quiz_detail pass_score_pct null');
+    }
+  });
+  await test('Org admin puede crear quiz unit/final (RPC)', async () => {
+    const { data: unitQuizId, error: unitQuizError } = await orgAdmin.rpc(
+      'rpc_create_unit_quiz',
+      { p_unit_id: UNIT_ID },
+    );
+
+    if (unitQuizError) throw unitQuizError;
+    if (!unitQuizId) {
+      throw new Error('rpc_create_unit_quiz no retorno quiz_id');
+    }
+
+    const { data: unitQuizAgain, error: unitQuizAgainError } =
+      await orgAdmin.rpc('rpc_create_unit_quiz', { p_unit_id: UNIT_ID });
+    if (unitQuizAgainError) throw unitQuizAgainError;
+    if (unitQuizAgain !== unitQuizId) {
+      throw new Error('rpc_create_unit_quiz no es idempotente');
+    }
+
+    const { data: finalQuizId, error: finalQuizError } = await orgAdmin.rpc(
+      'rpc_create_final_quiz',
+      { p_course_id: COURSE_ID },
+    );
+
+    if (finalQuizError) throw finalQuizError;
+    if (!finalQuizId) {
+      throw new Error('rpc_create_final_quiz no retorno quiz_id');
+    }
+
+    const { data: finalQuizAgain, error: finalQuizAgainError } =
+      await orgAdmin.rpc('rpc_create_final_quiz', { p_course_id: COURSE_ID });
+    if (finalQuizAgainError) throw finalQuizAgainError;
+    if (finalQuizAgain !== finalQuizId) {
+      throw new Error('rpc_create_final_quiz no es idempotente');
+    }
+
+    const { data: quizRow, error: quizRowError } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('quiz_id')
+      .eq('quiz_id', unitQuizId)
+      .maybeSingle();
+
+    if (quizRowError) throw quizRowError;
+    if (!quizRow?.quiz_id) {
+      throw new Error('v_org_quiz_detail no devuelve quiz creado');
+    }
+  });
+  await test('Org admin puede editar quiz (RPCs)', async () => {
+    if (!orgQuizId) {
+      console.log('ℹ️  Org quiz RPCs sin quiz_id (no data)');
+      return;
+    }
+
+    const { data: original, error: originalError } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('quiz_id, title, questions')
+      .eq('quiz_id', orgQuizId)
+      .maybeSingle();
+
+    if (originalError) throw originalError;
+    if (!original?.quiz_id) {
+      throw new Error('org_quiz_detail sin quiz_id para RPCs');
+    }
+
+    const newTitle = 'Seed Quiz RPC';
+    const { error: updateError } = await orgAdmin.rpc(
+      'rpc_update_quiz_metadata',
+      {
+        p_quiz_id: orgQuizId,
+        p_title: newTitle,
+        p_description: original.description ?? null,
+        p_pass_score_pct: original.pass_score_pct ?? null,
+        p_shuffle_questions: original.shuffle_questions ?? null,
+        p_show_correct_answers: original.show_correct_answers ?? null,
+      },
+    );
+    if (updateError) throw updateError;
+
+    const { data: updated, error: updatedError } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('title')
+      .eq('quiz_id', orgQuizId)
+      .maybeSingle();
+
+    if (updatedError) throw updatedError;
+    if (updated?.title !== newTitle) {
+      throw new Error('rpc_update_quiz_metadata no actualizo title');
+    }
+
+    const { data: questionId, error: createQuestionError } = await orgAdmin.rpc(
+      'rpc_create_quiz_question',
+      {
+        p_quiz_id: orgQuizId,
+        p_prompt: 'Seed question RPC',
+      },
+    );
+
+    if (createQuestionError) throw createQuestionError;
+    if (!questionId) {
+      throw new Error('rpc_create_quiz_question no retorno id');
+    }
+
+    const { data: choiceA, error: choiceAError } = await orgAdmin.rpc(
+      'rpc_create_quiz_choice',
+      {
+        p_question_id: questionId,
+        p_text: 'Seed choice A',
+        p_is_correct: false,
+      },
+    );
+    if (choiceAError) throw choiceAError;
+
+    const { data: choiceB, error: choiceBError } = await orgAdmin.rpc(
+      'rpc_create_quiz_choice',
+      {
+        p_question_id: questionId,
+        p_text: 'Seed choice B',
+        p_is_correct: true,
+      },
+    );
+    if (choiceBError) throw choiceBError;
+
+    const { error: updateChoiceError } = await orgAdmin.rpc(
+      'rpc_update_quiz_choice',
+      {
+        p_choice_id: choiceB,
+        p_text: 'Seed choice B updated',
+        p_is_correct: true,
+      },
+    );
+    if (updateChoiceError) throw updateChoiceError;
+
+    const { error: setCorrectError } = await orgAdmin.rpc(
+      'rpc_set_quiz_correct_choice',
+      {
+        p_question_id: questionId,
+        p_choice_id: choiceA,
+      },
+    );
+    if (setCorrectError) throw setCorrectError;
+
+    const { data: afterCorrect, error: afterCorrectError } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('questions')
+      .eq('quiz_id', orgQuizId)
+      .maybeSingle();
+
+    if (afterCorrectError) throw afterCorrectError;
+    const questionRow =
+      afterCorrect?.questions?.find(
+        (question) => question.question_id === questionId,
+      ) ?? null;
+    const correctChoices = (questionRow?.choices ?? []).filter(
+      (choice) => choice.is_correct,
+    );
+    if (correctChoices.length !== 1) {
+      throw new Error('rpc_set_quiz_correct_choice no dejo una sola correcta');
+    }
+
+    const orderIds = (questionRow?.choices ?? []).map(
+      (choice) => choice.choice_id,
+    );
+    if (orderIds.length >= 2) {
+      const next = [...orderIds];
+      [next[0], next[1]] = [next[1], next[0]];
+      const { error: reorderChoicesError } = await orgAdmin.rpc(
+        'rpc_reorder_quiz_choices',
+        {
+          p_question_id: questionId,
+          p_choice_ids: next,
+        },
+      );
+      if (reorderChoicesError) throw reorderChoicesError;
+    }
+
+    const { error: updateQuestionError } = await orgAdmin.rpc(
+      'rpc_update_quiz_question',
+      {
+        p_question_id: questionId,
+        p_prompt: 'Seed question RPC updated',
+      },
+    );
+    if (updateQuestionError) throw updateQuestionError;
+
+    const { data: afterUpdate, error: afterUpdateError } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('questions')
+      .eq('quiz_id', orgQuizId)
+      .maybeSingle();
+
+    if (afterUpdateError) throw afterUpdateError;
+    const afterUpdateQuestion =
+      afterUpdate?.questions?.find(
+        (question) => question.question_id === questionId,
+      ) ?? null;
+    if (afterUpdateQuestion?.prompt !== 'Seed question RPC updated') {
+      throw new Error('rpc_update_quiz_question no actualizo prompt');
+    }
+
+    const questionIds = (afterUpdate?.questions ?? []).map(
+      (question) => question.question_id,
+    );
+    if (questionIds.length >= 2) {
+      const next = [...questionIds];
+      [next[0], next[1]] = [next[1], next[0]];
+      const { error: reorderError } = await orgAdmin.rpc(
+        'rpc_reorder_quiz_questions',
+        {
+          p_quiz_id: orgQuizId,
+          p_question_ids: next,
+        },
+      );
+      if (reorderError) throw reorderError;
+    }
+
+    const { error: archiveError } = await orgAdmin.rpc(
+      'rpc_archive_quiz_question',
+      { p_question_id: questionId },
+    );
+    if (archiveError) throw archiveError;
+
+    const { data: afterArchive, error: afterArchiveError } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('questions')
+      .eq('quiz_id', orgQuizId)
+      .maybeSingle();
+
+    if (afterArchiveError) throw afterArchiveError;
+    if (
+      afterArchive?.questions?.some(
+        (question) => question.question_id === questionId,
+      )
+    ) {
+      throw new Error('rpc_archive_quiz_question no oculto pregunta');
     }
   });
   await test('Org admin ve org lesson detail', async () => {
@@ -1958,6 +2587,62 @@ async function run() {
       throw new Error('Org admin ve course outline de otro org (NO debería)');
     }
   });
+  await test('Org admin no ve local courses de otro org', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_local_courses')
+      .select('course_id')
+      .eq('local_id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve local courses de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve quiz detail de otro org', async () => {
+    const otherQuiz = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_quiz_detail')
+      .select('quiz_id')
+      .eq('quiz_id', otherQuiz);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve quiz detail de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no puede editar quiz de otro org (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_update_quiz_metadata', {
+      p_quiz_id: '00000000-0000-0000-0000-000000000000',
+      p_title: 'Org admin update',
+      p_description: null,
+      p_pass_score_pct: null,
+      p_shuffle_questions: null,
+      p_show_correct_answers: null,
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo editar quiz de otro org');
+    }
+  });
+  await test('Org admin no puede crear quiz en curso ajeno (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_create_final_quiz', {
+      p_course_id: '00000000-0000-0000-0000-000000000000',
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo crear quiz en curso ajeno');
+    }
+  });
+  await test('Org admin no puede setear cursos en local ajeno (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_set_local_courses', {
+      p_local_id: '00000000-0000-0000-0000-000000000000',
+      p_course_ids: [COURSE_ID],
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo setear cursos en local ajeno');
+    }
+  });
   await test('Org admin no ve lesson detail de otro org', async () => {
     const otherLesson = '00000000-0000-0000-0000-000000000000';
     const { data, error } = await orgAdmin
@@ -2044,6 +2729,69 @@ async function run() {
     { critical: false },
   );
   await test(
+    'Superadmin ve org quiz detail (si aplica)',
+    async () => {
+      if (!orgQuizId) {
+        console.log('ℹ️  Superadmin org quiz detail sin quiz_id (no data)');
+        return;
+      }
+      const { data, error } = await superadmin
+        .from('v_org_quiz_detail')
+        .select('quiz_id')
+        .eq('quiz_id', orgQuizId)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data?.quiz_id) {
+        console.log('ℹ️  Superadmin org quiz detail sin data (no row)');
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin puede editar quiz (RPC) (si aplica)',
+    async () => {
+      if (!orgQuizId) {
+        console.log('ℹ️  Superadmin quiz RPC sin quiz_id (no data)');
+        return;
+      }
+      const { error } = await superadmin.rpc('rpc_update_quiz_metadata', {
+        p_quiz_id: orgQuizId,
+        p_title: 'Superadmin Quiz Update',
+        p_description: null,
+        p_pass_score_pct: null,
+        p_shuffle_questions: null,
+        p_show_correct_answers: null,
+      });
+
+      if (error) throw error;
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin puede crear quiz (RPC) (si aplica)',
+    async () => {
+      const { error } = await superadmin.rpc('rpc_create_final_quiz', {
+        p_course_id: COURSE_ID,
+      });
+
+      if (error) throw error;
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin puede setear cursos (RPC) (si aplica)',
+    async () => {
+      const { error } = await superadmin.rpc('rpc_set_local_courses', {
+        p_local_id: LOCAL_A,
+        p_course_ids: [COURSE_ID],
+      });
+
+      if (error) throw error;
+    },
+    { critical: false },
+  );
+  await test(
     'Superadmin ve org learner detail (si aplica)',
     async () => {
       const { data, error } = await superadmin
@@ -2086,6 +2834,22 @@ async function run() {
       if ((data ?? []).length === 0) {
         console.log('ℹ️  Superadmin org courses sin rows (no data)');
         return;
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org local courses (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_local_courses')
+        .select('local_id')
+        .eq('local_id', LOCAL_A)
+        .limit(1);
+
+      if (error) throw error;
+      if ((data ?? []).length === 0) {
+        console.log('ℹ️  Superadmin org local courses sin rows (no data)');
       }
     },
     { critical: false },

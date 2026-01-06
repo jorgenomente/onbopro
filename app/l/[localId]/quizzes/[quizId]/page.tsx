@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { Card } from '@/components/learner/Card';
+import { InlineNotice } from '@/components/learner/InlineNotice';
+import { LearnerShell } from '@/components/learner/LearnerShell';
+import { StateBlock } from '@/components/learner/StateBlock';
+import { formatQuizStatusLabel } from '@/lib/learner/formatters';
 
 type QuizQuestionOption = {
   option_id: string;
@@ -129,9 +134,7 @@ export default function QuizPlayerPage() {
 
   const statusLabel = useMemo(() => {
     if (!quiz) return '';
-    if (quiz.attempt_status === 'not_started') return 'No iniciado';
-    if (quiz.attempt_status === 'in_progress') return 'En progreso';
-    return 'Enviado';
+    return formatQuizStatusLabel(quiz.attempt_status);
   }, [quiz]);
 
   const handleBack = () => {
@@ -201,175 +204,199 @@ export default function QuizPlayerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-3xl">
-        {loading && (
-          <div className="space-y-4">
-            <div className="h-8 w-2/3 animate-pulse rounded-2xl bg-white" />
-            <div className="h-48 animate-pulse rounded-2xl bg-white" />
-            <div className="h-24 animate-pulse rounded-2xl bg-white" />
-          </div>
-        )}
+    <LearnerShell maxWidthClass="max-w-3xl" paddedBottom>
+      {loading && (
+        <div className="space-y-4">
+          <Card className="h-8 w-2/3 animate-pulse" />
+          <Card className="h-48 animate-pulse" />
+          <Card className="h-24 animate-pulse" />
+        </div>
+      )}
 
-        {!loading && error && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-red-600">Error: {error}</p>
-            <button
-              className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-              onClick={fetchQuiz}
-              type="button"
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && !quiz && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm text-zinc-600">
-              No tenes acceso a este quiz o no existe.
-            </p>
-          </div>
-        )}
-
-        {!loading && !error && quiz && (
-          <div className="space-y-6">
-            <header className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                    {quiz.quiz_scope === 'unit'
-                      ? 'Quiz de unidad'
-                      : 'Quiz final'}
-                  </p>
-                  <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
-                    {quiz.quiz_title}
-                  </h1>
-                  <p className="mt-1 text-sm text-zinc-500">
-                    {quiz.answered_count}/{quiz.total_questions} respondidas
-                  </p>
-                  {quiz.attempt_status === 'submitted' && (
-                    <p className="mt-2 text-sm text-zinc-700">
-                      Resultado: {quiz.score ?? 0}% ·{' '}
-                      {quiz.passed ? 'Aprobado' : 'No aprobado'}
-                    </p>
-                  )}
-                </div>
-                <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
-                  {statusLabel}
-                </span>
-              </div>
-            </header>
-
-            <section className="space-y-4">
-              {normalizedQuestions.length === 0 ? (
-                <div className="rounded-2xl bg-white p-6 shadow-sm">
-                  <p className="text-sm text-zinc-600">
-                    Este quiz no tiene preguntas cargadas.
-                  </p>
-                </div>
-              ) : (
-                normalizedQuestions.map((question) => (
-                  <div
-                    key={question.question_id}
-                    className="rounded-2xl bg-white p-6 shadow-sm"
-                  >
-                    <div className="text-sm text-zinc-500">
-                      Pregunta {question.position}
-                    </div>
-                    <h2 className="mt-2 text-base font-semibold text-zinc-900">
-                      {question.prompt}
-                    </h2>
-
-                    <div className="mt-4 space-y-2">
-                      {(question.options ?? []).map((option) => (
-                        <label
-                          key={option.option_id}
-                          className="flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
-                        >
-                          <input
-                            type="radio"
-                            checked={
-                              question.selected_option_id === option.option_id
-                            }
-                            onChange={() =>
-                              handleAnswer(
-                                question.question_id,
-                                option.option_id,
-                                null,
-                              )
-                            }
-                            disabled={
-                              !canAnswer || answeringId === question.question_id
-                            }
-                          />
-                          <span>{option.option_text}</span>
-                        </label>
-                      ))}
-                      {!question.options && (
-                        <div className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700">
-                          <textarea
-                            className="w-full resize-none bg-transparent text-sm text-zinc-700 outline-none"
-                            rows={3}
-                            placeholder="Escribe tu respuesta..."
-                            defaultValue={question.answer_text ?? ''}
-                            disabled={
-                              !canAnswer || answeringId === question.question_id
-                            }
-                            onBlur={(event) =>
-                              handleAnswer(
-                                question.question_id,
-                                null,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {answeringId === question.question_id && (
-                      <p className="mt-2 text-xs text-zinc-500">Guardando...</p>
-                    )}
-                  </div>
-                ))
-              )}
-            </section>
-
-            <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {!loading && error && (
+        <StateBlock
+          tone="error"
+          title="No pudimos cargar la información."
+          description={`Error: ${error}`}
+          actions={
+            <>
               <button
                 className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-                onClick={handleBack}
+                onClick={fetchQuiz}
                 type="button"
               >
-                Volver al curso
+                Reintentar
               </button>
-              <div className="flex gap-2">
-                <button
-                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                  type="button"
-                  disabled={!canStart || starting}
-                  onClick={handleStart}
-                >
-                  {starting ? 'Iniciando...' : 'Comenzar'}
-                </button>
-                <button
-                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 disabled:opacity-50"
-                  type="button"
-                  disabled={!canSubmit || submitting}
-                  onClick={handleSubmit}
-                >
-                  {submitting ? 'Enviando...' : 'Enviar'}
-                </button>
+              <button
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                onClick={() => router.back()}
+                type="button"
+              >
+                Volver
+              </button>
+            </>
+          }
+        />
+      )}
+
+      {!loading && !error && !quiz && (
+        <StateBlock
+          tone="empty"
+          title="No tenés acceso a este quiz."
+          description="Puede que no esté asignado a tu local."
+          actions={
+            <button
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+              onClick={() => router.back()}
+              type="button"
+            >
+              Volver
+            </button>
+          }
+        />
+      )}
+
+      {!loading && !error && quiz && (
+        <div className="space-y-6">
+          <Card>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs tracking-wide text-zinc-500 uppercase">
+                  {quiz.quiz_scope === 'unit' ? 'Quiz de unidad' : 'Quiz final'}
+                </p>
+                <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {quiz.quiz_title}
+                </h1>
+                <p className="mt-1 text-sm text-zinc-500">
+                  {quiz.answered_count}/{quiz.total_questions} respondidas
+                </p>
+                {answeringId && (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Guardando respuesta…
+                  </p>
+                )}
+                {quiz.attempt_status === 'submitted' && (
+                  <p className="mt-2 text-sm text-zinc-700">
+                    Resultado: {quiz.score ?? 0}% ·{' '}
+                    {quiz.passed ? 'Aprobado' : 'No aprobado'}
+                  </p>
+                )}
               </div>
-            </footer>
-            {actionError && (
-              <div className="rounded-2xl bg-white p-4 text-sm text-red-600 shadow-sm">
-                {actionError}
-              </div>
+              <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-600">
+                {statusLabel}
+              </span>
+            </div>
+          </Card>
+
+          <section className="space-y-4">
+            {normalizedQuestions.length === 0 ? (
+              <StateBlock
+                tone="empty"
+                title="Este quiz no tiene preguntas cargadas."
+              />
+            ) : (
+              normalizedQuestions.map((question) => (
+                <Card key={question.question_id}>
+                  <div className="text-sm text-zinc-500">
+                    Pregunta {question.position}
+                  </div>
+                  <h2 className="mt-2 text-base font-semibold text-zinc-900">
+                    {question.prompt}
+                  </h2>
+
+                  <div className="mt-4 space-y-2">
+                    {(question.options ?? []).map((option) => (
+                      <label
+                        key={option.option_id}
+                        className="flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
+                      >
+                        <input
+                          type="radio"
+                          checked={
+                            question.selected_option_id === option.option_id
+                          }
+                          onChange={() =>
+                            handleAnswer(
+                              question.question_id,
+                              option.option_id,
+                              null,
+                            )
+                          }
+                          disabled={
+                            !canAnswer || answeringId === question.question_id
+                          }
+                        />
+                        <span>{option.option_text}</span>
+                      </label>
+                    ))}
+                    {!question.options && (
+                      <div className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700">
+                        <textarea
+                          className="w-full resize-none bg-transparent text-sm text-zinc-700 outline-none"
+                          rows={3}
+                          placeholder="Escribe tu respuesta..."
+                          defaultValue={question.answer_text ?? ''}
+                          disabled={
+                            !canAnswer || answeringId === question.question_id
+                          }
+                          onBlur={(event) =>
+                            handleAnswer(
+                              question.question_id,
+                              null,
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))
             )}
+          </section>
+        </div>
+      )}
+
+      {!loading && !error && quiz && (
+        <div className="fixed right-0 bottom-0 left-0 border-t border-zinc-200 bg-white/95 px-6 py-4 backdrop-blur">
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+              onClick={handleBack}
+              type="button"
+            >
+              Volver al curso
+            </button>
+            <div className="flex flex-col gap-2">
+              {actionError ? (
+                <InlineNotice tone="error">{actionError}</InlineNotice>
+              ) : null}
+              <div className="flex gap-2">
+                {quiz.attempt_status === 'not_started' ? (
+                  <button
+                    className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    type="button"
+                    disabled={!canStart || starting}
+                    onClick={handleStart}
+                  >
+                    {starting ? 'Iniciando…' : 'Comenzar'}
+                  </button>
+                ) : null}
+                {quiz.attempt_status === 'in_progress' ? (
+                  <button
+                    className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    type="button"
+                    disabled={!canSubmit || submitting}
+                    onClick={handleSubmit}
+                  >
+                    {submitting ? 'Enviando…' : 'Enviar'}
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </LearnerShell>
   );
 }

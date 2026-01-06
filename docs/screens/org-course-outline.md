@@ -34,7 +34,7 @@
         {
           lesson_id: uuid
           title: text
-          lesson_type: 'text' | 'video_url' | 'file' | 'link'
+          lesson_type: 'text' | 'html' | 'richtext' | 'video' | 'file' | 'link'
           position: int
           estimated_minutes: int | null
           is_required: boolean
@@ -67,6 +67,15 @@
 - final_quiz:
   - quiz con quiz_type = 'final' y unit_id = null.
 - No progreso, no writes.
+
+## Quiz navigation (MVP)
+
+- Unit quiz:
+  - Si unit_quiz != null → link a `/org/courses/[courseId]/quizzes/[quizId]/edit`.
+- Final quiz:
+  - Si final_quiz != null → link a `/org/courses/[courseId]/quizzes/[quizId]/edit`.
+- Si no existe quiz:
+  - CTA “Crear quiz” (RPC futura) que crea y redirige al editor.
 
 ## Security
 
