@@ -199,7 +199,7 @@ export default function LessonPlaceholderPage() {
             <p className="text-sm text-red-600">Error: {error}</p>
             <button
               className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-              onClick={loadLesson}
+              onClick={fetchLesson}
               type="button"
             >
               Reintentar
