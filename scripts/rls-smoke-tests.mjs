@@ -1,5 +1,8 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 const ORG_ID = '219c2724-033c-4f98-bc2a-3ffe12c5a618';
 const APRENDIZ_UID = 'c877ae1f-f2be-4697-a227-62778565305e';
@@ -1239,6 +1242,184 @@ async function run() {
       throw new Error('Aprendiz ve ref dashboard (NO debería)');
     }
   });
+  await test('Referente NO ve org dashboard', async () => {
+    const { data, error } = await referente
+      .from('v_org_dashboard')
+      .select('org_id')
+      .eq('org_id', ORG_ID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org dashboard (NO debería)');
+    }
+  });
+  await test('Referente NO ve org local detail', async () => {
+    const { data, error } = await referente
+      .from('v_org_local_detail')
+      .select('local_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org local detail (NO debería)');
+    }
+  });
+  await test('Referente NO ve org learner detail', async () => {
+    const { data, error } = await referente
+      .from('v_org_learner_detail')
+      .select('learner_id')
+      .eq('learner_id', APRENDIZ_UID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org learner detail (NO debería)');
+    }
+  });
+  await test('Referente NO ve org alerts', async () => {
+    const { data, error } = await referente
+      .from('v_org_alerts')
+      .select('learner_id')
+      .limit(1);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org alerts (NO debería)');
+    }
+  });
+  await test('Referente NO ve org courses', async () => {
+    const { data, error } = await referente
+      .from('v_org_courses')
+      .select('course_id')
+      .limit(1);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org courses (NO debería)');
+    }
+  });
+  await test('Referente NO ve org course outline', async () => {
+    const { data, error } = await referente
+      .from('v_org_course_outline')
+      .select('course_id')
+      .eq('course_id', COURSE_ID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org course outline (NO debería)');
+    }
+  });
+  await test('Referente NO ve org lesson detail', async () => {
+    const { data, error } = await referente
+      .from('v_org_lesson_detail')
+      .select('lesson_id')
+      .eq('lesson_id', LESSON_ID);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org lesson detail (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org dashboard', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_dashboard')
+      .select('org_id')
+      .eq('org_id', ORG_ID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org dashboard (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org learner detail', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_learner_detail')
+      .select('learner_id')
+      .eq('learner_id', APRENDIZ_UID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org learner detail (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org alerts', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_alerts')
+      .select('learner_id')
+      .limit(1);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org alerts (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org courses', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_courses')
+      .select('course_id')
+      .limit(1);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org courses (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org course outline', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_course_outline')
+      .select('course_id')
+      .eq('course_id', COURSE_ID);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org course outline (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org lesson detail', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_lesson_detail')
+      .select('lesson_id')
+      .eq('lesson_id', LESSON_ID);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org lesson detail (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org local detail', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_local_detail')
+      .select('local_id')
+      .eq('local_id', LOCAL_A);
+
+    if (error) {
+      return;
+    }
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org local detail (NO debería)');
+    }
+  });
   await test('RPC: quiz start deny local ajeno (si aplica)', async () => {
     if (!quizIdForRpc) {
       return;
@@ -1268,6 +1449,537 @@ async function run() {
     },
     { critical: false },
   );
+  await test('Org admin ve org dashboard con locals', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_dashboard')
+      .select('org_id, locals')
+      .eq('org_id', ORG_ID)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.org_id) throw new Error('Org admin sin org_dashboard');
+    if (!Array.isArray(data.locals)) {
+      throw new Error('org_dashboard locals no es array');
+    }
+    if (data.locals[0]) {
+      const hasKeys =
+        data.locals[0].local_id &&
+        data.locals[0].local_name &&
+        data.locals[0].status;
+      if (!hasKeys) {
+        throw new Error('org_dashboard locals sin keys requeridas');
+      }
+    }
+  });
+  await test('Org admin ve org alerts (si aplica)', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_alerts')
+      .select(
+        'org_id, learner_id, local_id, alert_type, alert_severity, alert_label, days_inactive, progress_pct, failed_quiz_count, last_activity_at',
+      )
+      .eq('org_id', ORG_ID);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0) {
+      console.log('ℹ️  Org alerts sin rows (no data)');
+      return;
+    }
+    const row = data[0];
+    if (!row?.org_id || !row?.learner_id || !row?.local_id) {
+      throw new Error('org_alerts sin ids requeridos');
+    }
+    if (!['inactive', 'low_progress', 'quiz_failed'].includes(row.alert_type)) {
+      throw new Error('org_alerts alert_type invalido');
+    }
+    if (!['at_risk', 'critical'].includes(row.alert_severity)) {
+      throw new Error('org_alerts alert_severity invalido');
+    }
+    if (!row.alert_label) {
+      throw new Error('org_alerts alert_label vacio');
+    }
+    if (row.alert_type === 'quiz_failed') {
+      if ((row.failed_quiz_count ?? 0) < 3) {
+        throw new Error('org_alerts quiz_failed sin conteo >= 3');
+      }
+    }
+    if (row.alert_type === 'low_progress') {
+      if (row.progress_pct == null || row.progress_pct >= 30) {
+        throw new Error('org_alerts low_progress sin progress_pct < 30');
+      }
+    }
+    if (row.alert_type === 'inactive') {
+      if (!row.last_activity_at && row.days_inactive == null) {
+        return;
+      }
+      if (row.days_inactive == null) {
+        throw new Error('org_alerts inactive sin days_inactive');
+      }
+    }
+  });
+  await test('Org admin ve org courses (si aplica)', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_courses')
+      .select(
+        'org_id, course_id, status, units_count, lessons_count, assigned_locals_count, learners_assigned_count',
+      )
+      .eq('org_id', ORG_ID);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0) {
+      console.log('ℹ️  Org courses sin rows (no data)');
+      return;
+    }
+    const row = data[0];
+    if (!row?.org_id || !row?.course_id) {
+      throw new Error('org_courses sin ids requeridos');
+    }
+    if (!['draft', 'published', 'archived'].includes(row.status)) {
+      throw new Error('org_courses status invalido');
+    }
+    if ((row.units_count ?? -1) < 0 || (row.lessons_count ?? -1) < 0) {
+      throw new Error('org_courses counts invalidos');
+    }
+    if (row.assigned_locals_count !== 0 || row.learners_assigned_count !== 0) {
+      throw new Error('org_courses assigned counts deben ser 0');
+    }
+  });
+  await test('Org admin ve org course outline', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_course_outline')
+      .select('course_id, course_status, units, final_quiz')
+      .eq('course_id', COURSE_ID)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.course_id) {
+      throw new Error('org_course_outline sin course_id');
+    }
+    if (!['draft', 'published', 'archived'].includes(data.course_status)) {
+      throw new Error('org_course_outline course_status invalido');
+    }
+    if (!Array.isArray(data.units)) {
+      throw new Error('org_course_outline units no es array');
+    }
+    if (data.units[0] && !Array.isArray(data.units[0].lessons)) {
+      throw new Error('org_course_outline lessons no es array');
+    }
+  });
+  await test('Org admin ve org lesson detail', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_lesson_detail')
+      .select('lesson_id, lesson_type')
+      .eq('lesson_id', LESSON_ID)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.lesson_id) {
+      throw new Error('org_lesson_detail sin lesson_id');
+    }
+    if (
+      !['text', 'html', 'richtext', 'video', 'file', 'link'].includes(
+        data.lesson_type,
+      )
+    ) {
+      throw new Error(
+        `org_lesson_detail lesson_type invalido: ${data.lesson_type}`,
+      );
+    }
+  });
+  await test('Org admin puede actualizar lesson content (RPC)', async () => {
+    const { data: detail, error: detailError } = await orgAdmin
+      .from('v_org_lesson_detail')
+      .select('lesson_id, lesson_type')
+      .eq('lesson_id', LESSON_ID)
+      .maybeSingle();
+
+    if (detailError) throw detailError;
+    if (!detail?.lesson_id) {
+      throw new Error('org_lesson_detail sin lesson_id');
+    }
+
+    const payload = {
+      p_lesson_id: LESSON_ID,
+      p_title: 'Seed Lesson RPC',
+      p_content_text: null,
+      p_content_html: null,
+      p_content_url: null,
+      p_is_required: true,
+      p_estimated_minutes: 10,
+    };
+
+    if (detail.lesson_type === 'text') {
+      payload.p_content_text = 'Seed content text';
+    } else if (
+      detail.lesson_type === 'html' ||
+      detail.lesson_type === 'richtext'
+    ) {
+      payload.p_content_html = '<p>Seed content html</p>';
+    } else if (
+      detail.lesson_type === 'video' ||
+      detail.lesson_type === 'file' ||
+      detail.lesson_type === 'link'
+    ) {
+      payload.p_content_url = 'https://example.com/asset';
+    }
+
+    const { error } = await orgAdmin.rpc('rpc_update_lesson_content', payload);
+    if (error) throw error;
+
+    const { data: updated, error: updatedError } = await orgAdmin
+      .from('v_org_lesson_detail')
+      .select('lesson_title')
+      .eq('lesson_id', LESSON_ID)
+      .maybeSingle();
+
+    if (updatedError) throw updatedError;
+    if (updated?.lesson_title !== payload.p_title) {
+      throw new Error('rpc_update_lesson_content no actualizo title');
+    }
+  });
+  await test('Org admin puede crear unit (RPC)', async () => {
+    const unitTitle = 'Seed Unit A';
+    let unitId = null;
+
+    const { data: existing, error: existingError } = await orgAdmin
+      .from('course_units')
+      .select('id')
+      .eq('course_id', COURSE_ID)
+      .eq('title', unitTitle)
+      .limit(1);
+
+    if (existingError) throw existingError;
+    if (existing?.[0]?.id) {
+      unitId = existing[0].id;
+    } else {
+      const { data, error } = await orgAdmin.rpc('rpc_create_course_unit', {
+        p_course_id: COURSE_ID,
+        p_title: unitTitle,
+      });
+
+      if (error) throw error;
+      unitId = data;
+    }
+
+    if (!unitId) {
+      throw new Error('rpc_create_course_unit no retorno unit_id');
+    }
+  });
+  await test('Org admin puede reordenar units (RPC)', async () => {
+    const unitTitles = ['Seed Unit A', 'Seed Unit B'];
+    const unitIds = [];
+
+    for (const title of unitTitles) {
+      const { data: existing, error: existingError } = await orgAdmin
+        .from('course_units')
+        .select('id')
+        .eq('course_id', COURSE_ID)
+        .eq('title', title)
+        .limit(1);
+
+      if (existingError) throw existingError;
+      if (existing?.[0]?.id) {
+        unitIds.push(existing[0].id);
+      } else {
+        const { data, error } = await orgAdmin.rpc('rpc_create_course_unit', {
+          p_course_id: COURSE_ID,
+          p_title: title,
+        });
+
+        if (error) throw error;
+        unitIds.push(data);
+      }
+    }
+
+    const { data: courseUnits, error: unitsError } = await orgAdmin
+      .from('course_units')
+      .select('id, position')
+      .eq('course_id', COURSE_ID)
+      .order('position', { ascending: true });
+
+    if (unitsError) throw unitsError;
+    const existingIds = (courseUnits ?? []).map((unit) => unit.id);
+    const remaining = existingIds.filter((id) => !unitIds.includes(id));
+    const newOrder = [unitIds[1], unitIds[0], ...remaining].filter(Boolean);
+
+    const { error } = await orgAdmin.rpc('rpc_reorder_course_units', {
+      p_course_id: COURSE_ID,
+      p_unit_ids: newOrder,
+    });
+
+    if (error) throw error;
+
+    const { data: reordered, error: reorderError } = await orgAdmin
+      .from('course_units')
+      .select('id, position')
+      .eq('course_id', COURSE_ID)
+      .order('position', { ascending: true });
+
+    if (reorderError) throw reorderError;
+    const orderedIds = (reordered ?? []).map((unit) => unit.id);
+    if (orderedIds[0] !== unitIds[1]) {
+      throw new Error('rpc_reorder_course_units no aplico orden');
+    }
+  });
+  await test('Org admin puede crear lesson (RPC)', async () => {
+    const unitTitle = 'Seed Unit A';
+    const { data: unitRows, error: unitError } = await orgAdmin
+      .from('course_units')
+      .select('id')
+      .eq('course_id', COURSE_ID)
+      .eq('title', unitTitle)
+      .limit(1);
+
+    if (unitError) throw unitError;
+    const unitId = unitRows?.[0]?.id;
+    if (!unitId) throw new Error('Unit seed no encontrada');
+
+    const lessonTitle = 'Seed Lesson A';
+    const { data: lessonRows, error: lessonError } = await orgAdmin
+      .from('lessons')
+      .select('id')
+      .eq('unit_id', unitId)
+      .eq('title', lessonTitle)
+      .limit(1);
+
+    if (lessonError) throw lessonError;
+    if (lessonRows?.[0]?.id) return;
+
+    const { data, error } = await orgAdmin.rpc('rpc_create_unit_lesson', {
+      p_unit_id: unitId,
+      p_title: lessonTitle,
+      p_lesson_type: 'text',
+      p_is_required: true,
+    });
+
+    if (error) throw error;
+    if (!data) throw new Error('rpc_create_unit_lesson no retorno lesson_id');
+  });
+  await test('Org admin puede reordenar lessons (RPC)', async () => {
+    const unitTitle = 'Seed Unit A';
+    const { data: unitRows, error: unitError } = await orgAdmin
+      .from('course_units')
+      .select('id')
+      .eq('course_id', COURSE_ID)
+      .eq('title', unitTitle)
+      .limit(1);
+
+    if (unitError) throw unitError;
+    const unitId = unitRows?.[0]?.id;
+    if (!unitId) throw new Error('Unit seed no encontrada');
+
+    const lessonTitles = ['Seed Lesson A', 'Seed Lesson B'];
+    const lessonIds = [];
+
+    for (const title of lessonTitles) {
+      const { data: lessonRows, error: lessonError } = await orgAdmin
+        .from('lessons')
+        .select('id')
+        .eq('unit_id', unitId)
+        .eq('title', title)
+        .limit(1);
+
+      if (lessonError) throw lessonError;
+      if (lessonRows?.[0]?.id) {
+        lessonIds.push(lessonRows[0].id);
+        continue;
+      }
+
+      const { data, error } = await orgAdmin.rpc('rpc_create_unit_lesson', {
+        p_unit_id: unitId,
+        p_title: title,
+        p_lesson_type: 'text',
+        p_is_required: true,
+      });
+
+      if (error) throw error;
+      lessonIds.push(data);
+    }
+
+    const { data: lessons, error: lessonsError } = await orgAdmin
+      .from('lessons')
+      .select('id, position')
+      .eq('unit_id', unitId)
+      .order('position', { ascending: true });
+
+    if (lessonsError) throw lessonsError;
+    const existingLessonIds = (lessons ?? []).map((lesson) => lesson.id);
+    const remaining = existingLessonIds.filter((id) => !lessonIds.includes(id));
+    const newOrder = [lessonIds[1], lessonIds[0], ...remaining].filter(Boolean);
+
+    const { error } = await orgAdmin.rpc('rpc_reorder_unit_lessons', {
+      p_unit_id: unitId,
+      p_lesson_ids: newOrder,
+    });
+
+    if (error) throw error;
+
+    const { data: reordered, error: reorderError } = await orgAdmin
+      .from('lessons')
+      .select('id, position')
+      .eq('unit_id', unitId)
+      .order('position', { ascending: true });
+
+    if (reorderError) throw reorderError;
+    const orderedIds = (reordered ?? []).map((lesson) => lesson.id);
+    if (orderedIds[0] !== lessonIds[1]) {
+      throw new Error('rpc_reorder_unit_lessons no aplico orden');
+    }
+  });
+  await test('Org admin ve org local detail', async () => {
+    const { data: dashboard, error: dashboardError } = await orgAdmin
+      .from('v_org_dashboard')
+      .select('locals')
+      .eq('org_id', ORG_ID)
+      .single();
+
+    if (dashboardError) throw dashboardError;
+    const localId = dashboard?.locals?.[0]?.local_id;
+    if (!localId) {
+      console.log('ℹ️  Org local detail sin locals (no data)');
+      return;
+    }
+
+    const { data, error } = await orgAdmin
+      .from('v_org_local_detail')
+      .select('local_id, learners')
+      .eq('local_id', localId)
+      .single();
+
+    if (error) throw error;
+    if (!data?.local_id) throw new Error('Org local detail sin local_id');
+    if (!Array.isArray(data.learners)) {
+      throw new Error('Org local detail learners no es array');
+    }
+  });
+  await test('Org admin ve org learner detail', async () => {
+    const { data: localDetail, error: localDetailError } = await orgAdmin
+      .from('v_org_local_detail')
+      .select('learners')
+      .limit(1)
+      .maybeSingle();
+
+    if (localDetailError) throw localDetailError;
+    const learnerId = localDetail?.learners?.[0]?.learner_id;
+    if (!learnerId) {
+      console.log('ℹ️  Org learner detail sin learners (no data)');
+      return;
+    }
+
+    const { data, error } = await orgAdmin
+      .from('v_org_learner_detail')
+      .select('learner_id, locals, courses, quizzes, recent_activity')
+      .eq('learner_id', learnerId)
+      .single();
+
+    if (error) throw error;
+    if (!data?.learner_id) throw new Error('Org learner detail sin learner_id');
+    if (!Array.isArray(data.locals)) {
+      throw new Error('Org learner detail locals no es array');
+    }
+    if (!Array.isArray(data.courses)) {
+      throw new Error('Org learner detail courses no es array');
+    }
+    if (!Array.isArray(data.quizzes)) {
+      throw new Error('Org learner detail quizzes no es array');
+    }
+    if (!Array.isArray(data.recent_activity)) {
+      throw new Error('Org learner detail recent_activity no es array');
+    }
+  });
+  await test('Org admin no ve learner de otro org', async () => {
+    const otherLearner = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_learner_detail')
+      .select('learner_id')
+      .eq('learner_id', otherLearner);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve learner de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve local de otro org', async () => {
+    const otherLocal = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_local_detail')
+      .select('local_id')
+      .eq('local_id', otherLocal);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve local de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve otro org', async () => {
+    const otherOrg = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_dashboard')
+      .select('org_id')
+      .eq('org_id', otherOrg);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve alerts de otro org', async () => {
+    const otherOrg = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_alerts')
+      .select('org_id')
+      .eq('org_id', otherOrg);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve alerts de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve courses de otro org', async () => {
+    const otherOrg = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_courses')
+      .select('org_id')
+      .eq('org_id', otherOrg);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve courses de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve course outline de otro org', async () => {
+    const otherCourse = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_course_outline')
+      .select('course_id')
+      .eq('course_id', otherCourse);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve course outline de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no ve lesson detail de otro org', async () => {
+    const otherLesson = '00000000-0000-0000-0000-000000000000';
+    const { data, error } = await orgAdmin
+      .from('v_org_lesson_detail')
+      .select('lesson_id')
+      .eq('lesson_id', otherLesson);
+
+    if (error) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve lesson detail de otro org (NO debería)');
+    }
+  });
+  await test('Org admin no puede crear unit en curso ajeno', async () => {
+    const { error } = await orgAdmin.rpc('rpc_create_course_unit', {
+      p_course_id: '00000000-0000-0000-0000-000000000000',
+      p_title: 'Unit invalid',
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo crear unit en curso ajeno');
+    }
+  });
 
   const superadmin = await login(
     process.env.TEST_SUPERADMIN_EMAIL,
@@ -1281,6 +1993,131 @@ async function run() {
       const ids = (data ?? []).map((row) => row.local_id);
       if (ids.includes(LOCAL_B) && !ids.includes(LOCAL_A)) {
         throw new Error('Superadmin ve Local B sin Local A (revisar seeds)');
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org dashboard (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_dashboard')
+        .select('org_id')
+        .limit(1);
+
+      if (error) throw error;
+      if ((data ?? []).length === 0) {
+        throw new Error('Superadmin no ve org_dashboard');
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org local detail (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_local_detail')
+        .select('local_id')
+        .limit(1);
+
+      if (error) throw error;
+      if ((data ?? []).length === 0) {
+        throw new Error('Superadmin no ve org local detail');
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org lesson detail (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_lesson_detail')
+        .select('lesson_id')
+        .eq('lesson_id', LESSON_ID)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data?.lesson_id) {
+        console.log('ℹ️  Superadmin org lesson detail sin data (no row)');
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org learner detail (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_learner_detail')
+        .select('learner_id')
+        .limit(1);
+
+      if (error) throw error;
+      if ((data ?? []).length === 0) {
+        throw new Error('Superadmin no ve org learner detail');
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org alerts (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_alerts')
+        .select('org_id')
+        .limit(1);
+
+      if (error) throw error;
+      if ((data ?? []).length === 0) {
+        console.log('ℹ️  Superadmin org alerts sin rows (no data)');
+        return;
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org courses (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_courses')
+        .select('org_id')
+        .limit(1);
+
+      if (error) throw error;
+      if ((data ?? []).length === 0) {
+        console.log('ℹ️  Superadmin org courses sin rows (no data)');
+        return;
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin ve org course outline (si aplica)',
+    async () => {
+      const { data, error } = await superadmin
+        .from('v_org_course_outline')
+        .select('course_id')
+        .eq('course_id', COURSE_ID)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data?.course_id) {
+        console.log('ℹ️  Superadmin org course outline sin data (no row)');
+        return;
+      }
+    },
+    { critical: false },
+  );
+  await test(
+    'Superadmin puede crear unit (RPC)',
+    async () => {
+      const { data, error } = await superadmin.rpc('rpc_create_course_unit', {
+        p_course_id: COURSE_ID,
+        p_title: 'Seed Unit Superadmin',
+      });
+
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Superadmin rpc_create_course_unit sin id');
       }
     },
     { critical: false },

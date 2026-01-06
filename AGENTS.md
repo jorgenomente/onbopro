@@ -100,6 +100,11 @@ Always follow:
 
 - docs/migrations-playbook.md
 
+## Lockfile discipline
+
+- The canonical lockfile is `onbopro/package-lock.json`.
+- Do not create or commit lockfiles outside the repo root (e.g. `~/package-lock.json`).
+
 For every migration:
 
 - Add required constraints
@@ -287,3 +292,8 @@ The following rules are mandatory for ONBO and apply to ALL agents
 - Never invent can\_\* flags in frontend.
 
 Violations of these rules require updating the docs BEFORE implementation.
+
+⚠️ Security note:
+Scripts under /scripts load .env.local and may use SERVICE_ROLE keys.
+They are intended for local dev / CI only and must never be executed
+in client-side or production runtime contexts.

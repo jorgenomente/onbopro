@@ -1269,3 +1269,379 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Notes**
 
 - Feedback (WRITE) deferred to P1
+
+### 2026-01-06T12:11:36Z — Lote 3 iniciado (Org Admin)
+
+**Goal**
+
+- Add org dashboard contract, view, and RLS smoke tests
+
+**Files changed**
+
+- docs/screens/org-dashboard.md
+- supabase/migrations/20260106041000_029_create_v_org_dashboard.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Notes**
+
+- Org dashboard view scopes access in view definition (org_admin + superadmin)
+- Feedback (WRITE) deferred to P1
+
+### 2026-01-06T12:14:48Z — apply org dashboard view + validate
+
+**Goal**
+
+- Apply v_org_dashboard, run smoke tests, and validate output
+
+**Files changed**
+
+- supabase/migrations/20260106041000_029_create_v_org_dashboard.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 55, Failures: 0)
+- [x] Sanity query org_admin (org_id: 219c2724-033c-4f98-bc2a-3ffe12c5a618)
+
+### 2026-01-06T12:33:37Z — org local detail contract + view + tests
+
+**Goal**
+
+- Add org-local-detail contract, view, and RLS smoke tests
+
+**Files changed**
+
+- docs/screens/org-local-detail.md
+- supabase/migrations/20260106043500_030_create_v_org_local_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Notes**
+
+- View scopes access in definition (org_admin + superadmin)
+
+### 2026-01-06T12:37:03Z — apply org local detail view + validate
+
+**Goal**
+
+- Apply v_org_local_detail, run smoke tests, and validate output
+
+**Files changed**
+
+- supabase/migrations/20260106043500_030_create_v_org_local_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 60, Failures: 0)
+- [x] Sanity query org_admin (local_id: 13cd2ffe-ee2b-46b3-8fd0-bb8a705dd1ef)
+
+### 2026-01-06T12:57:41Z — org learner detail contract + view + tests
+
+**Goal**
+
+- Add org-learner-detail contract, view, and RLS smoke tests
+
+**Files changed**
+
+- docs/screens/org-learner-detail.md
+- supabase/migrations/20260106050000_031_create_v_org_learner_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Notes**
+
+- View scopes access in definition (org_admin + superadmin)
+
+### 2026-01-06T13:01:31Z — apply org learner detail view + validate
+
+**Goal**
+
+- Apply v_org_learner_detail, run smoke tests, and validate output
+
+**Files changed**
+
+- supabase/migrations/20260106050000_031_create_v_org_learner_detail.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 65, Failures: 0)
+- [x] Sanity query org_admin (learner_id: c877ae1f-f2be-4697-a227-62778565305e)
+
+### 2026-01-06T13:12:20Z — org alerts contract + view + tests
+
+**Goal**
+
+- Add org-alerts contract, view, and RLS smoke tests
+
+**Files changed**
+
+- docs/screens/org-alerts.md
+- supabase/migrations/20260106054000_032_create_v_org_alerts.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Notes**
+
+- View scopes access in definition (org_admin + superadmin)
+
+### 2026-01-06T13:20:44Z — apply org alerts view + validate
+
+**Goal**
+
+- Apply v_org_alerts, run smoke tests, and validate output
+
+**Files changed**
+
+- supabase/migrations/20260106054000_032_create_v_org_alerts.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 70, Failures: 0)
+- [x] Sanity query org_admin (org_id: 219c2724-033c-4f98-bc2a-3ffe12c5a618, rows: 1)
+
+### 2026-01-06T13:38:02Z — refine org alerts quiz_failed (consecutive) + tests
+
+**Goal**
+
+- Refine quiz_failed to count consecutive fails since last pass
+
+**Files changed**
+
+- supabase/migrations/20260106060000_033_refine_v_org_alerts_quiz_failed_consecutive.sql
+- docs/screens/org-alerts.md
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Notes**
+
+- View continues to scope access in definition (org_admin + superadmin)
+
+### 2026-01-06T13:39:12Z — apply org alerts refine + validate
+
+**Goal**
+
+- Apply migration 033, run smoke tests, and validate quiz_failed semantics
+
+**Files changed**
+
+- supabase/migrations/20260106060000_033_refine_v_org_alerts_quiz_failed_consecutive.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 70, Failures: 0)
+- [x] Sanity query org_admin (quiz_failed rows: 0)
+
+### 2026-01-06T14:12:15Z — Lote 4 iniciado (Course Builder docs)
+
+**Goal**
+
+- Add content model and org course list contract for Lote 4
+
+**Files changed**
+
+- docs/content-model.md
+- docs/screens/org-course-list.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+### 2026-01-06T14:32:18Z — 034 content core tables (builder fields)
+
+**Goal**
+
+- Extend content core tables with builder fields and updated_at triggers
+
+**Files changed**
+
+- supabase/migrations/20260106062000_034_create_content_core_tables.sql
+- docs/ops-log.md
+
+### 2026-01-06T14:34:26Z — 035 v_org_courses + smoke tests
+
+**Goal**
+
+- Add v_org_courses view and RLS smoke tests
+
+**Files changed**
+
+- supabase/migrations/20260106064000_035_create_v_org_courses.sql
+- docs/screens/org-course-list.md
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+### 2026-01-06T14:45:08Z — apply 034+035 + validate
+
+**Goal**
+
+- Apply migrations 034/035, run smoke tests, and validate v_org_courses
+
+**Files changed**
+
+- supabase/migrations/20260106062000_034_create_content_core_tables.sql
+- supabase/migrations/20260106064000_035_create_v_org_courses.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 75, Failures: 0)
+- [x] Sanity query org_admin (org_id: 219c2724-033c-4f98-bc2a-3ffe12c5a618, rows: 1)
+
+### 2026-01-06T15:02:40Z — org course outline contract + view + tests
+
+**Goal**
+
+- Add org course outline contract, view, and smoke tests
+
+**Files changed**
+
+- docs/screens/org-course-outline.md
+- supabase/migrations/20260106070000_036_create_v_org_course_outline.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+### 2026-01-06T15:18:22Z — apply v_org_course_outline + validate
+
+**Goal**
+
+- Apply migration 036, run smoke tests, and validate course outline shape
+
+**Files changed**
+
+- supabase/migrations/20260106070000_036_create_v_org_course_outline.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 80, Failures: 0)
+- [x] Sanity query org_admin (course_id: 2c8e263a-e835-4ec8-828c-9b57ce5c7156, units_len: 1, final_quiz_type: object)
+
+### 2026-01-06T15:38:14Z — RPCs units/lessons create + reorder
+
+**Goal**
+
+- Add RPCs to create and reorder course units and lessons
+
+**Files changed**
+
+- supabase/migrations/20260106073000_037_rpc_course_units_lessons.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+### 2026-01-06T16:30:13Z — lesson editor contract + view + rpc + tests
+
+**Goal**
+
+- Add org lesson editor contract, read view, and update RPC with tests
+
+**Files changed**
+
+- docs/screens/org-lesson-editor.md
+- supabase/migrations/20260106093000_045_create_v_org_lesson_detail.sql
+- supabase/migrations/20260106094000_046_rpc_update_lesson_content.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T16:30:58Z — align lesson editor with content_type values
+
+**Goal**
+
+- Align lesson editor view/RPC with lesson content_type values (text/html/video)
+
+**Files changed**
+
+- supabase/migrations/20260106095500_047_fix_org_lesson_editor_types.sql
+- docs/screens/org-lesson-editor.md
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T16:32:10Z — support richtext lesson type
+
+**Goal**
+
+- Support richtext lessons in org lesson editor view/RPC
+
+**Files changed**
+
+- supabase/migrations/20260106100000_048_support_richtext_lessons.sql
+- docs/screens/org-lesson-editor.md
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs`
+
+### 2026-01-06T15:54:28Z — fix RPC reorder conflicts
+
+**Goal**
+
+- Fix reorder RPCs to avoid unique constraint conflicts
+
+**Files changed**
+
+- supabase/migrations/20260106080000_038_fix_rpc_reorder_units_lessons.sql
+- supabase/migrations/20260106081000_039_fix_rpc_reorder_position_conflicts.sql
+- supabase/migrations/20260106082000_040_fix_rpc_reorder_with_offset.sql
+- supabase/migrations/20260106083000_041_fix_rpc_reorder_negative_positions.sql
+- supabase/migrations/20260106084000_042_fix_rpc_reorder_with_normalization.sql
+- supabase/migrations/20260106085000_043_fix_rpc_reorder_disable_rls.sql
+- supabase/migrations/20260106090000_044_fix_rpc_reorder_loop.sql
+- scripts/rls-smoke-tests.mjs
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (Tests executed: 86, Failures: 0)
+
+### 2026-01-06T13:55:44Z — dev seed alert scenarios
+
+**Goal**
+
+- Add deterministic dev-only seed to populate org alerts scenarios
+
+**Files changed**
+
+- scripts/dev-seed-alert-scenarios.mjs
+- docs/ops-log.md
+
+**Notes**
+
+- Dev-only: requires `SUPABASE_SERVICE_ROLE_KEY`
+- Refuses hosted Supabase unless `ALLOW_PROD_SEED=true`
+- Run: `node scripts/dev-seed-alert-scenarios.mjs`
