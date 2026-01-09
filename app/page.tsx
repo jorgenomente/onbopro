@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
-type MyLocal = {
-  local_id: string;
-  local_name: string;
-  org_id: string;
-  membership_role: string;
-  membership_status: string;
+type MyContext = {
+  is_superadmin: boolean;
+  has_org_admin: boolean;
+  org_admin_org_id: string | null;
+  locals_count: number;
+  primary_local_id: string | null;
 };
 
 export default function Home() {
@@ -29,7 +29,11 @@ export default function Home() {
         return;
       }
 
-      const { data, error } = await supabase.from('v_my_locals').select('*');
+      const { data, error } = await supabase
+        .from('v_my_context')
+        .select('*')
+        .maybeSingle<MyContext>();
+
       if (!active) return;
 
       if (error) {
@@ -38,18 +42,33 @@ export default function Home() {
         return;
       }
 
-      const locals = (data ?? []) as MyLocal[];
-      if (locals.length === 1) {
-        router.replace(`/l/${locals[0].local_id}/dashboard`);
+      if (!data) {
+        setStatus('error');
+        setMessage('No pudimos determinar tu contexto.');
         return;
       }
-      if (locals.length > 1) {
+
+      if (data.is_superadmin) {
+        router.replace('/superadmin/organizations');
+        return;
+      }
+
+      if (data.has_org_admin) {
+        router.replace('/org/dashboard');
+        return;
+      }
+
+      if (data.locals_count === 1 && data.primary_local_id) {
+        router.replace(`/l/${data.primary_local_id}/dashboard`);
+        return;
+      }
+      if (data.locals_count > 1) {
         router.replace('/select-local');
         return;
       }
 
       setStatus('empty');
-      setMessage('No tenes locales asignados. Contacta a soporte.');
+      setMessage('No tenés locales asignados. Contactá a soporte.');
     };
 
     run();

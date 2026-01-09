@@ -27,6 +27,8 @@ const REFERENTE_PASSWORD = process.env.TEST_REFERENTE_PASSWORD;
 let failures = 0;
 let executed = 0;
 let createdOrgId = null;
+let createdOrgAdminMembershipId = null;
+let createdLocalMembershipId = null;
 
 async function login(email, password) {
   const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -59,6 +61,10 @@ function isUniqueViolation(error) {
 
 function isRlsViolation(error) {
   return /row-level security/i.test(error?.message ?? '');
+}
+
+function isForbidden(error) {
+  return error?.code === '42501';
 }
 
 function isIntegrityViolation(error) {
@@ -258,6 +264,21 @@ async function run() {
     if (error) throw error;
     if (!data.some((r) => r.local_id === LOCAL_A)) {
       throw new Error('No ve su local_membership');
+    }
+  });
+  await test('Aprendiz ve v_my_context', async () => {
+    const { data, error } = await aprendiz
+      .from('v_my_context')
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('v_my_context vacio');
+    if (data.is_superadmin) {
+      throw new Error('Aprendiz marcado como superadmin');
+    }
+    if (data.locals_count < 1) {
+      throw new Error('locals_count invalido para aprendiz');
     }
   });
   await test('Aprendiz ve asignación del curso en Local A', async () => {
@@ -1383,6 +1404,116 @@ async function run() {
       throw new Error('Referente ve superadmin org detail (NO debería)');
     }
   });
+  await test('Referente NO ve superadmin local members', async () => {
+    const { data, error } = await referente
+      .from('v_superadmin_local_members')
+      .select('membership_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve superadmin local members (NO debería)');
+    }
+  });
+  await test('Referente NO ve superadmin local context', async () => {
+    const { data, error } = await referente
+      .from('v_superadmin_local_context')
+      .select('local_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve superadmin local context (NO debería)');
+    }
+  });
+  await test('Referente NO ve org invitations', async () => {
+    const { data, error } = await referente
+      .from('v_org_invitations')
+      .select('invitation_id')
+      .eq('org_id', ORG_ID)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve org invitations (NO debería)');
+    }
+  });
+  await test('Referente NO ve invitation public (sin token)', async () => {
+    const { data, error } = await referente
+      .from('v_invitation_public')
+      .select('invitation_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Referente ve invitation public (NO debería)');
+    }
+  });
+  await test('Referente NO puede agregar org admin (RPC)', async () => {
+    const { error } = await referente.rpc('rpc_superadmin_add_org_admin', {
+      p_org_id: ORG_ID,
+      p_email: process.env.TEST_ORGADMIN_EMAIL,
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo agregar org admin (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Referente NO puede editar org membership status (RPC)', async () => {
+    const { error } = await referente.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error(
+        'Referente pudo editar org membership status (NO debería)',
+      );
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Referente NO puede agregar local member (RPC)', async () => {
+    const { error } = await referente.rpc('rpc_superadmin_add_local_member', {
+      p_local_id: LOCAL_A,
+      p_email: process.env.TEST_APRENDIZ_EMAIL,
+      p_role: 'aprendiz',
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo agregar local member (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Referente NO puede editar local membership status (RPC)', async () => {
+    const { error } = await referente.rpc(
+      'rpc_superadmin_set_local_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error(
+        'Referente pudo editar local membership status (NO debería)',
+      );
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
   await test('Referente NO puede crear organizacion (RPC)', async () => {
     const { error } = await referente.rpc('rpc_create_organization', {
       p_name: `Ref Org ${Date.now()}`,
@@ -1391,6 +1522,19 @@ async function run() {
 
     if (!error) {
       throw new Error('Referente pudo crear organizacion (NO debería)');
+    }
+  });
+  await test('Referente NO puede crear local (RPC)', async () => {
+    const { error } = await referente.rpc('rpc_create_local', {
+      p_org_id: ORG_ID,
+      p_name: `Ref Local ${Date.now()}`,
+    });
+
+    if (!error) {
+      throw new Error('Referente pudo crear local (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
     }
   });
   await test('Referente NO puede editar quiz (RPC)', async () => {
@@ -1553,6 +1697,116 @@ async function run() {
       throw new Error('Aprendiz ve superadmin org detail (NO debería)');
     }
   });
+  await test('Aprendiz NO ve superadmin local members', async () => {
+    const { data, error } = await aprendiz
+      .from('v_superadmin_local_members')
+      .select('membership_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve superadmin local members (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve superadmin local context', async () => {
+    const { data, error } = await aprendiz
+      .from('v_superadmin_local_context')
+      .select('local_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve superadmin local context (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve org invitations', async () => {
+    const { data, error } = await aprendiz
+      .from('v_org_invitations')
+      .select('invitation_id')
+      .eq('org_id', ORG_ID)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve org invitations (NO debería)');
+    }
+  });
+  await test('Aprendiz NO ve invitation public (sin token)', async () => {
+    const { data, error } = await aprendiz
+      .from('v_invitation_public')
+      .select('invitation_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Aprendiz ve invitation public (NO debería)');
+    }
+  });
+  await test('Aprendiz NO puede agregar org admin (RPC)', async () => {
+    const { error } = await aprendiz.rpc('rpc_superadmin_add_org_admin', {
+      p_org_id: ORG_ID,
+      p_email: process.env.TEST_ORGADMIN_EMAIL,
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo agregar org admin (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Aprendiz NO puede editar org membership status (RPC)', async () => {
+    const { error } = await aprendiz.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error(
+        'Aprendiz pudo editar org membership status (NO debería)',
+      );
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Aprendiz NO puede agregar local member (RPC)', async () => {
+    const { error } = await aprendiz.rpc('rpc_superadmin_add_local_member', {
+      p_local_id: LOCAL_A,
+      p_email: process.env.TEST_APRENDIZ_EMAIL,
+      p_role: 'aprendiz',
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo agregar local member (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Aprendiz NO puede editar local membership status (RPC)', async () => {
+    const { error } = await aprendiz.rpc(
+      'rpc_superadmin_set_local_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error(
+        'Aprendiz pudo editar local membership status (NO debería)',
+      );
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
   await test('Aprendiz NO puede crear organizacion (RPC)', async () => {
     const { error } = await aprendiz.rpc('rpc_create_organization', {
       p_name: `Apr Org ${Date.now()}`,
@@ -1561,6 +1815,19 @@ async function run() {
 
     if (!error) {
       throw new Error('Aprendiz pudo crear organizacion (NO debería)');
+    }
+  });
+  await test('Aprendiz NO puede crear local (RPC)', async () => {
+    const { error } = await aprendiz.rpc('rpc_create_local', {
+      p_org_id: ORG_ID,
+      p_name: `Apr Local ${Date.now()}`,
+    });
+
+    if (!error) {
+      throw new Error('Aprendiz pudo crear local (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
     }
   });
   await test('Aprendiz NO puede editar quiz (RPC)', async () => {
@@ -1648,6 +1915,119 @@ async function run() {
       throw new Error('Anon ve superadmin org detail (NO debería)');
     }
   });
+  await test('Anon NO ve superadmin local members', async () => {
+    const { data, error } = await anon
+      .from('v_superadmin_local_members')
+      .select('membership_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve superadmin local members (NO debería)');
+    }
+  });
+  await test('Anon NO ve superadmin local context', async () => {
+    const { data, error } = await anon
+      .from('v_superadmin_local_context')
+      .select('local_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve superadmin local context (NO debería)');
+    }
+  });
+  await test('Anon NO ve v_my_context', async () => {
+    const { data, error } = await anon.from('v_my_context').select('*');
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve v_my_context (NO debería)');
+    }
+  });
+  await test('Anon NO ve org invitations', async () => {
+    const { data, error } = await anon
+      .from('v_org_invitations')
+      .select('invitation_id')
+      .eq('org_id', ORG_ID)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve org invitations (NO debería)');
+    }
+  });
+  await test('Anon NO ve invitation public (sin token)', async () => {
+    const { data, error } = await anon
+      .from('v_invitation_public')
+      .select('invitation_id')
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Anon ve invitation public (NO debería)');
+    }
+  });
+  await test('Anon NO puede agregar org admin (RPC)', async () => {
+    const { error } = await anon.rpc('rpc_superadmin_add_org_admin', {
+      p_org_id: ORG_ID,
+      p_email: process.env.TEST_ORGADMIN_EMAIL,
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo agregar org admin (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Anon NO puede editar org membership status (RPC)', async () => {
+    const { error } = await anon.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error('Anon pudo editar org membership status (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Anon NO puede agregar local member (RPC)', async () => {
+    const { error } = await anon.rpc('rpc_superadmin_add_local_member', {
+      p_local_id: LOCAL_A,
+      p_email: process.env.TEST_APRENDIZ_EMAIL,
+      p_role: 'aprendiz',
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo agregar local member (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Anon NO puede editar local membership status (RPC)', async () => {
+    const { error } = await anon.rpc(
+      'rpc_superadmin_set_local_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error('Anon pudo editar local membership status (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
   await test('Anon NO puede crear organizacion (RPC)', async () => {
     const { error } = await anon.rpc('rpc_create_organization', {
       p_name: `Anon Org ${Date.now()}`,
@@ -1656,6 +2036,19 @@ async function run() {
 
     if (!error) {
       throw new Error('Anon pudo crear organizacion (NO debería)');
+    }
+  });
+  await test('Anon NO puede crear local (RPC)', async () => {
+    const { error } = await anon.rpc('rpc_create_local', {
+      p_org_id: ORG_ID,
+      p_name: `Anon Local ${Date.now()}`,
+    });
+
+    if (!error) {
+      throw new Error('Anon pudo crear local (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
     }
   });
   await test('Anon NO puede editar quiz (RPC)', async () => {
@@ -1720,6 +2113,21 @@ async function run() {
     process.env.TEST_ORGADMIN_EMAIL,
     process.env.TEST_ORGADMIN_PASSWORD,
   );
+  await test('Org admin ve v_my_context', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_my_context')
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('v_my_context vacio para org admin');
+    if (data.is_superadmin) {
+      throw new Error('Org admin marcado como superadmin');
+    }
+    if (!data.has_org_admin) {
+      throw new Error('Org admin sin has_org_admin');
+    }
+  });
   await test('Org admin detecta curso no asignado (setup)', async () => {
     const { data, error } = await orgAdmin
       .from('v_org_local_courses')
@@ -1941,6 +2349,43 @@ async function run() {
     }
     if (row.is_assigned && row.assignment_status !== 'active') {
       throw new Error('org_local_courses is_assigned inconsistente');
+    }
+  });
+  await test('Org admin ve org invitations', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_org_invitations')
+      .select('invitation_id')
+      .eq('org_id', ORG_ID)
+      .limit(1);
+
+    if (error) throw error;
+    if (!Array.isArray(data)) {
+      throw new Error('Org admin org invitations no es array');
+    }
+  });
+  await test('Org admin NO puede insertar invitations', async () => {
+    const { data: userData, error: userError } = await orgAdmin.auth.getUser();
+
+    if (userError || !userData?.user?.id) {
+      throw new Error('No se pudo resolver user_id para org admin');
+    }
+
+    const { error } = await orgAdmin.from('invitations').insert({
+      org_id: ORG_ID,
+      local_id: LOCAL_A,
+      email: `invite-${Date.now()}@example.com`,
+      invited_role: 'aprendiz',
+      status: 'pending',
+      token: 'local-test-token',
+      expires_at: new Date(Date.now() + 86400000).toISOString(),
+      invited_by_user_id: userData.user.id,
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo insertar invitation (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
     }
   });
   await test('Org admin puede setear cursos de local (RPC)', async () => {
@@ -2784,6 +3229,30 @@ async function run() {
       throw new Error('Org admin ve superadmin org detail (NO debería)');
     }
   });
+  await test('Org admin NO ve superadmin local members', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_superadmin_local_members')
+      .select('membership_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve superadmin local members (NO debería)');
+    }
+  });
+  await test('Org admin NO ve superadmin local context', async () => {
+    const { data, error } = await orgAdmin
+      .from('v_superadmin_local_context')
+      .select('local_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error && !isRlsViolation(error)) throw error;
+    if ((data ?? []).length > 0) {
+      throw new Error('Org admin ve superadmin local context (NO debería)');
+    }
+  });
   await test('Org admin NO puede crear organizacion (RPC)', async () => {
     const { error } = await orgAdmin.rpc('rpc_create_organization', {
       p_name: `OrgAdmin Org ${Date.now()}`,
@@ -2794,11 +3263,99 @@ async function run() {
       throw new Error('Org admin pudo crear organizacion (NO debería)');
     }
   });
+  await test('Org admin NO puede crear local (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_create_local', {
+      p_org_id: ORG_ID,
+      p_name: `OrgAdmin Local ${Date.now()}`,
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo crear local (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Org admin NO puede agregar org admin (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_superadmin_add_org_admin', {
+      p_org_id: ORG_ID,
+      p_email: process.env.TEST_ORGADMIN_EMAIL,
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo agregar org admin (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Org admin NO puede editar org membership status (RPC)', async () => {
+    const { error } = await orgAdmin.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error(
+        'Org admin pudo editar org membership status (NO debería)',
+      );
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Org admin NO puede agregar local member (RPC)', async () => {
+    const { error } = await orgAdmin.rpc('rpc_superadmin_add_local_member', {
+      p_local_id: LOCAL_A,
+      p_email: process.env.TEST_APRENDIZ_EMAIL,
+      p_role: 'aprendiz',
+    });
+
+    if (!error) {
+      throw new Error('Org admin pudo agregar local member (NO debería)');
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
+  await test('Org admin NO puede editar local membership status (RPC)', async () => {
+    const { error } = await orgAdmin.rpc(
+      'rpc_superadmin_set_local_membership_status',
+      {
+        p_membership_id: '00000000-0000-0000-0000-000000000000',
+        p_status: 'inactive',
+      },
+    );
+
+    if (!error) {
+      throw new Error(
+        'Org admin pudo editar local membership status (NO debería)',
+      );
+    }
+    if (!isRlsViolation(error) && !isForbidden(error)) {
+      throw error;
+    }
+  });
 
   const superadmin = await login(
     process.env.TEST_SUPERADMIN_EMAIL,
     process.env.TEST_SUPERADMIN_PASSWORD,
   );
+  await test('Superadmin ve v_my_context', async () => {
+    const { data, error } = await superadmin
+      .from('v_my_context')
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('v_my_context vacio para superadmin');
+    if (!data.is_superadmin) {
+      throw new Error('Superadmin sin is_superadmin');
+    }
+  });
   await test(
     'Superadmin v_my_locals solo propios (o vacio)',
     async () => {
@@ -2998,6 +3555,33 @@ async function run() {
     if (!Array.isArray(data.courses)) {
       throw new Error('superadmin org detail courses no es array');
     }
+    if (data.admins.length > 0 && !data.admins[0]?.membership_id) {
+      throw new Error('superadmin org detail admins sin membership_id');
+    }
+  });
+  await test('Superadmin ve superadmin local members', async () => {
+    const { data, error } = await superadmin
+      .from('v_superadmin_local_members')
+      .select('membership_id')
+      .eq('local_id', LOCAL_A)
+      .limit(1);
+
+    if (error) throw error;
+    if ((data ?? []).length === 0) {
+      console.log('ℹ️  Superadmin local members sin rows (no data)');
+    }
+  });
+  await test('Superadmin ve superadmin local context', async () => {
+    const { data, error } = await superadmin
+      .from('v_superadmin_local_context')
+      .select('local_id, org_id')
+      .eq('local_id', LOCAL_A)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data?.local_id) {
+      throw new Error('Superadmin no ve superadmin local context');
+    }
   });
   await test('Superadmin puede crear organizacion (RPC)', async () => {
     const orgName = `Smoke Org ${Date.now()}`;
@@ -3034,6 +3618,178 @@ async function run() {
       throw new Error(
         'Org creada no aparece en v_superadmin_organization_detail',
       );
+    }
+  });
+  await test('Superadmin puede crear local (RPC)', async () => {
+    const localName = `Smoke Local ${Date.now()}`;
+    const { data, error } = await superadmin.rpc('rpc_create_local', {
+      p_org_id: ORG_ID,
+      p_name: localName,
+    });
+
+    if (error) throw error;
+    if (!data) {
+      throw new Error('rpc_create_local sin local_id');
+    }
+
+    const { data: locals, error: localsError } = await superadmin
+      .from('locals')
+      .select('id, org_id')
+      .eq('id', data)
+      .maybeSingle();
+
+    if (localsError) throw localsError;
+    if (!locals?.id || locals.org_id !== ORG_ID) {
+      throw new Error('rpc_create_local no creo local en org correcta');
+    }
+  });
+  await test('Superadmin puede agregar org admin (RPC)', async () => {
+    const { data, error } = await superadmin.rpc(
+      'rpc_superadmin_add_org_admin',
+      {
+        p_org_id: ORG_ID,
+        p_email: process.env.TEST_ORGADMIN_EMAIL,
+      },
+    );
+
+    if (error) throw error;
+    createdOrgAdminMembershipId = data;
+    if (!createdOrgAdminMembershipId) {
+      throw new Error('rpc_superadmin_add_org_admin sin membership_id');
+    }
+
+    const { data: row, error: rowError } = await superadmin
+      .from('org_memberships')
+      .select('id, role, status')
+      .eq('id', createdOrgAdminMembershipId)
+      .maybeSingle();
+
+    if (rowError) throw rowError;
+    if (!row?.id || row.role !== 'org_admin' || row.status !== 'active') {
+      throw new Error('org_membership no quedo activo como org_admin');
+    }
+  });
+  await test('Superadmin puede editar org membership status (RPC)', async () => {
+    if (!createdOrgAdminMembershipId) {
+      console.log('ℹ️  No org_admin membership_id (skip)');
+      return;
+    }
+
+    const { error: deactivateError } = await superadmin.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: createdOrgAdminMembershipId,
+        p_status: 'inactive',
+      },
+    );
+
+    if (deactivateError) throw deactivateError;
+
+    const { data: inactiveRow, error: inactiveError } = await superadmin
+      .from('org_memberships')
+      .select('status, ended_at')
+      .eq('id', createdOrgAdminMembershipId)
+      .maybeSingle();
+
+    if (inactiveError) throw inactiveError;
+    if (inactiveRow?.status !== 'inactive' || !inactiveRow?.ended_at) {
+      throw new Error('org_membership no quedo inactive correctamente');
+    }
+
+    const { error: activateError } = await superadmin.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: createdOrgAdminMembershipId,
+        p_status: 'active',
+      },
+    );
+
+    if (activateError) throw activateError;
+
+    const { data: activeRow, error: activeError } = await superadmin
+      .from('org_memberships')
+      .select('status, ended_at')
+      .eq('id', createdOrgAdminMembershipId)
+      .maybeSingle();
+
+    if (activeError) throw activeError;
+    if (activeRow?.status !== 'active' || activeRow?.ended_at) {
+      throw new Error('org_membership no quedo active correctamente');
+    }
+  });
+  await test('Superadmin puede agregar local member (RPC)', async () => {
+    const { data, error } = await superadmin.rpc(
+      'rpc_superadmin_add_local_member',
+      {
+        p_local_id: LOCAL_A,
+        p_email: process.env.TEST_APRENDIZ_EMAIL,
+        p_role: 'aprendiz',
+      },
+    );
+
+    if (error) throw error;
+    createdLocalMembershipId = data;
+    if (!createdLocalMembershipId) {
+      throw new Error('rpc_superadmin_add_local_member sin membership_id');
+    }
+
+    const { data: row, error: rowError } = await superadmin
+      .from('local_memberships')
+      .select('id, role, status')
+      .eq('id', createdLocalMembershipId)
+      .maybeSingle();
+
+    if (rowError) throw rowError;
+    if (!row?.id || row.role !== 'aprendiz' || row.status !== 'active') {
+      throw new Error('local_membership no quedo activo como aprendiz');
+    }
+  });
+  await test('Superadmin puede editar local membership status (RPC)', async () => {
+    if (!createdLocalMembershipId) {
+      console.log('ℹ️  No local membership_id (skip)');
+      return;
+    }
+
+    const { error: deactivateError } = await superadmin.rpc(
+      'rpc_superadmin_set_local_membership_status',
+      {
+        p_membership_id: createdLocalMembershipId,
+        p_status: 'inactive',
+      },
+    );
+
+    if (deactivateError) throw deactivateError;
+
+    const { data: inactiveRow, error: inactiveError } = await superadmin
+      .from('local_memberships')
+      .select('status, ended_at')
+      .eq('id', createdLocalMembershipId)
+      .maybeSingle();
+
+    if (inactiveError) throw inactiveError;
+    if (inactiveRow?.status !== 'inactive' || !inactiveRow?.ended_at) {
+      throw new Error('local_membership no quedo inactive correctamente');
+    }
+
+    const { error: activateError } = await superadmin.rpc(
+      'rpc_superadmin_set_local_membership_status',
+      {
+        p_membership_id: createdLocalMembershipId,
+        p_status: 'active',
+      },
+    );
+
+    if (activateError) throw activateError;
+
+    const { data: activeRow, error: activeError } = await superadmin
+      .from('local_memberships')
+      .select('status, ended_at')
+      .eq('id', createdLocalMembershipId)
+      .maybeSingle();
+
+    if (activeError) throw activeError;
+    if (activeRow?.status !== 'active' || activeRow?.ended_at) {
+      throw new Error('local_membership no quedo active correctamente');
     }
   });
   await test(

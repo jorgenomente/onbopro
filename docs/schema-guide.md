@@ -182,7 +182,8 @@ Campos clave:
 - `email`
 - `invited_role`: `org_admin | referente | aprendiz`
 - `status`: `pending | accepted | expired | revoked`
-- `token`
+- `token_hash` (sha256 del token)
+- `sent_at`
 - `expires_at`
 
 Flujo:
@@ -198,6 +199,7 @@ Flujo:
 Nota:
 
 - La aceptación se maneja típicamente con **Edge Function + service role**.
+- El token **no se almacena en texto plano**. La UI envía `x-invite-token` y se compara `sha256` en DB.
 
 ---
 

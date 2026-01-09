@@ -16,6 +16,8 @@ y mantener coherencia con RLS y el modelo multi-tenant.
 4. El usuario invitado puede **ver a qué org/local fue invitado antes de aceptar**.
 5. El provisioning se ejecuta con **service role** (bypass RLS).
 6. Nunca confiar en datos del cliente para crear memberships.
+7. El email de invitación se envía vía **Resend API** y usa link directo.
+8. El nombre puede completarse post-login si falta en `profiles.full_name`.
 
 ---
 
@@ -36,11 +38,39 @@ Reglas:
 - Solo `pending` puede ser aceptada.
 - `accepted`, `expired` y `revoked` son terminales.
 
+## 2.1. Provisioning (server-side)
+
+Edge Functions oficiales:
+
+- `provision_local_member`: decide `member_added` vs `invited`.
+- `provision_org_admin`: invita o asigna org admins desde superadmin.
+- `resend_invitation`: reenvía invitaciones pendientes (o recrea si expiró).
+
+Todas ejecutan con **service role** y validan authz manualmente (superadmin u org_admin).
+
+Uso UI actual:
+
+- Org Admin y Superadmin invitan miembros de local usando `provision_local_member`.
+
+Comportamiento clave:
+
+- Si el email ya existe en Auth → asigna membership directo (sin invitación).
+- Si no existe → crea invitación y envía email con token ONBO.
+- `provision_local_member` requiere `SUPABASE_SERVICE_ROLE_KEY` para lookup en Auth.
+- Si el usuario existe en Auth pero no tiene perfil, se crea un profile mínimo.
+- Si el perfil existe pero no tiene email, se completa con el email normalizado.
+
+### Email de invitación (Resend)
+
+- El email se envía desde Edge Functions usando Resend API.
+- El link apunta directo a `/auth/accept-invitation?token=...` con el token propio.
+- `APP_URL` debe ser el dominio canónico (ej: `https://app.onbo.space`).
+
 ---
 
-## 3. Endpoint: Preview de invitación (sin auth)
+## 3. Preview de invitación (sin auth)
 
-### `GET /invite/:token`
+### View `v_invitation_public` (token por header)
 
 **Objetivo**  
 Permitir que el usuario vea:
@@ -52,12 +82,13 @@ Permitir que el usuario vea:
 
 **Comportamiento**
 
-1. Buscar invitación por `token`.
-2. Validar:
+1. Leer token desde header `x-invite-token`.
+2. Buscar invitación por `token_hash`.
+3. Validar:
    - existe
    - status = `pending`
    - no expirada
-3. Responder datos **no sensibles**.
+4. Responder datos **no sensibles**.
 
 **Respuesta ejemplo**
 
@@ -78,9 +109,9 @@ Permitir que el usuario vea:
 
 ---
 
-## 4. Endpoint: Aceptar invitación
+## 4. Edge Function: Aceptar invitación
 
-### `POST /invite/:token/accept`
+### `POST /functions/v1/accept_invitation`
 
 **Autenticación**
 
@@ -90,13 +121,15 @@ Permitir que el usuario vea:
 **Objetivo**
 Crear o reutilizar usuario y asignar memberships correspondientes.
 
+También captura `full_name` (nombre y apellido) y lo persiste en `profiles.full_name`.
+
 ---
 
 ## 5. Flujo de aceptación (paso a paso)
 
 ### Paso 1: Validar invitación
 
-- Buscar por token.
+- Buscar por token_hash.
 - Verificar:
   - status = `pending`
   - no expirada
@@ -215,8 +248,8 @@ Nunca lanzar error por “already exists”.
 
 ## 10. Checklist de implementación
 
-- [ ] Endpoint GET preview por token
-- [ ] Endpoint POST accept con service role
+- [ ] View `v_invitation_public` (token por header)
+- [ ] Edge Function `accept_invitation` con service role
 - [ ] Validación de expiración
 - [ ] Idempotencia garantizada
 - [ ] Reactivación de memberships

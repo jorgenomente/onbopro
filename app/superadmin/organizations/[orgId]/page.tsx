@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { invokeEdge } from '@/lib/invokeEdge';
 import { supabase } from '@/lib/supabase/client';
 
 type LocalItem = {
@@ -13,9 +14,22 @@ type LocalItem = {
 };
 
 type AdminItem = {
+  membership_id: string;
   user_id: string;
   email: string;
+  full_name?: string | null;
   status: string;
+};
+
+type AdminInvitationItem = {
+  invitation_id: string;
+  email: string;
+  invited_role: string;
+  status: string;
+  sent_at: string | null;
+  expires_at: string | null;
+  accepted_at: string | null;
+  created_at: string;
 };
 
 type CourseItem = {
@@ -31,7 +45,16 @@ type OrgDetailRow = {
   created_at: string;
   locals: LocalItem[];
   admins: AdminItem[];
+  admin_invitations: AdminInvitationItem[];
   courses: CourseItem[];
+};
+
+type ProvisionOrgAdminResponse = {
+  ok: boolean;
+  result?: 'member_added' | 'invited';
+  mode?: 'assigned_existing_user' | 'invited_new_user';
+  invitation_id?: string;
+  membership_id?: string;
 };
 
 function formatDate(value: string) {
@@ -56,6 +79,13 @@ export default function SuperadminOrganizationDetailPage() {
   const [error, setError] = useState('');
   const [row, setRow] = useState<OrgDetailRow | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [adminSuccess, setAdminSuccess] = useState('');
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminUpdatingId, setAdminUpdatingId] = useState<string | null>(null);
+  const [adminResendingId, setAdminResendingId] = useState<string | null>(null);
+  const [triedSubmit, setTriedSubmit] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +123,102 @@ export default function SuperadminOrganizationDetailPage() {
 
   const locals = useMemo(() => row?.locals ?? [], [row]);
   const admins = useMemo(() => row?.admins ?? [], [row]);
+  const adminInvitations = useMemo(() => row?.admin_invitations ?? [], [row]);
   const courses = useMemo(() => row?.courses ?? [], [row]);
+
+  const rawEmail = adminEmail ?? '';
+  const normalizedEmail = rawEmail.replace(/\s+/g, '').toLowerCase();
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  const showInvalidEmail = triedSubmit && !isValidEmail;
+
+  const addAdmin = async () => {
+    setAdminError('');
+    setAdminSuccess('');
+    setTriedSubmit(true);
+
+    if (!normalizedEmail || !isValidEmail) {
+      return;
+    }
+
+    setAdminError('');
+    setAdminSaving(true);
+    const { data, error: invokeError } =
+      await invokeEdge<ProvisionOrgAdminResponse>('provision_org_admin', {
+        org_id: orgId,
+        email: normalizedEmail,
+      });
+    setAdminSaving(false);
+
+    if (invokeError) {
+      setAdminError(invokeError.message);
+      return;
+    }
+
+    if (!data?.ok) {
+      setAdminError('No se pudo completar la invitación.');
+      return;
+    }
+
+    if (data.result === 'invited') {
+      setAdminSuccess('Invitación enviada.');
+    } else {
+      setAdminSuccess('Administrador agregado.');
+    }
+    setAdminEmail('');
+    setTriedSubmit(false);
+    setRefreshKey((value) => value + 1);
+  };
+
+  const updateAdminStatus = async (
+    membershipId: string,
+    status: 'active' | 'inactive',
+  ) => {
+    setAdminError('');
+    setAdminSuccess('');
+    setAdminUpdatingId(membershipId);
+
+    const { error: rpcError } = await supabase.rpc(
+      'rpc_superadmin_set_org_membership_status',
+      {
+        p_membership_id: membershipId,
+        p_status: status,
+      },
+    );
+
+    setAdminUpdatingId(null);
+
+    if (rpcError) {
+      setAdminError(rpcError.message);
+      return;
+    }
+
+    setAdminSuccess(
+      status === 'inactive'
+        ? 'Administrador desactivado.'
+        : 'Administrador reactivado.',
+    );
+    setRefreshKey((value) => value + 1);
+  };
+
+  const resendAdminInvitation = async (invitationId: string) => {
+    setAdminError('');
+    setAdminSuccess('');
+    setAdminResendingId(invitationId);
+
+    const { error: resendError } = await invokeEdge('resend_invitation', {
+      invitation_id: invitationId,
+    });
+
+    setAdminResendingId(null);
+
+    if (resendError) {
+      setAdminError(resendError.message);
+      return;
+    }
+
+    setAdminSuccess('Invitación reenviada.');
+    setRefreshKey((value) => value + 1);
+  };
 
   return (
     <div className="space-y-6">
@@ -190,11 +315,25 @@ export default function SuperadminOrganizationDetailPage() {
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-900">Locales</h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-semibold text-zinc-900">Locales</h2>
+              <Link
+                className="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                href={`/superadmin/organizations/${row.org_id}/locals/new`}
+              >
+                Crear local
+              </Link>
+            </div>
             {locals.length === 0 ? (
-              <p className="mt-4 text-sm text-zinc-500">
-                No hay locales registrados.
-              </p>
+              <div className="mt-4 space-y-3 rounded-xl border border-dashed border-zinc-200 p-4 text-sm text-zinc-500">
+                <p>No hay locales registrados.</p>
+                <Link
+                  className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800"
+                  href={`/superadmin/organizations/${row.org_id}/locals/new`}
+                >
+                  Crear el primer local
+                </Link>
+              </div>
             ) : (
               <div className="mt-4 space-y-3">
                 {locals.map((local) => (
@@ -210,13 +349,21 @@ export default function SuperadminOrganizationDetailPage() {
                         {local.learners_count} aprendices
                       </p>
                     </div>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles(
-                        local.status === 'archived' ? 'archived' : 'active',
-                      )}`}
-                    >
-                      {local.status === 'archived' ? 'Archivado' : 'Activo'}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles(
+                          local.status === 'archived' ? 'archived' : 'active',
+                        )}`}
+                      >
+                        {local.status === 'archived' ? 'Archivado' : 'Activo'}
+                      </span>
+                      <Link
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-500"
+                        href={`/superadmin/locals/${local.local_id}/members`}
+                      >
+                        Gestionar miembros →
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -224,9 +371,60 @@ export default function SuperadminOrganizationDetailPage() {
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-900">
-              Administradores
-            </h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-semibold text-zinc-900">
+                Administradores
+              </h2>
+            </div>
+            <div className="mt-4 space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/60 p-4">
+              <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+                Agregar administrador
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 focus:border-zinc-400 focus:outline-none"
+                  placeholder="admin@empresa.com"
+                  type="email"
+                  value={adminEmail}
+                  onChange={(event) => {
+                    const nextEmail = event.target.value;
+                    setAdminEmail(nextEmail);
+                    const nextNormalized = nextEmail
+                      .replace(/\s+/g, '')
+                      .toLowerCase();
+                    const nextValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                      nextNormalized,
+                    );
+                    if (nextEmail.trim().length === 0) {
+                      setAdminError('');
+                      setTriedSubmit(false);
+                      return;
+                    }
+                    if (nextValid) {
+                      setAdminError('');
+                      setTriedSubmit(false);
+                    }
+                  }}
+                />
+                <button
+                  className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={adminSaving || adminEmail.trim().length === 0}
+                  type="button"
+                  onClick={addAdmin}
+                >
+                  {adminSaving ? 'Agregando…' : 'Agregar'}
+                </button>
+              </div>
+              {showInvalidEmail && (
+                <p className="text-sm text-red-600">Ingresá un email válido.</p>
+              )}
+              {adminError && (
+                <p className="text-sm text-red-600">{adminError}</p>
+              )}
+              {adminSuccess && (
+                <p className="text-sm text-emerald-600">{adminSuccess}</p>
+              )}
+            </div>
             {admins.length === 0 ? (
               <p className="mt-4 text-sm text-zinc-500">
                 No hay administradores registrados.
@@ -241,9 +439,82 @@ export default function SuperadminOrganizationDetailPage() {
                     <p className="text-sm font-semibold text-zinc-900">
                       {admin.email}
                     </p>
-                    <span className="text-xs text-zinc-500">
-                      {admin.status}
-                    </span>
+                    {admin.full_name ? (
+                      <p className="text-xs text-zinc-500">{admin.full_name}</p>
+                    ) : null}
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                      <span>
+                        {admin.status === 'active' ? 'Activo' : 'Inactivo'}
+                      </span>
+                      <button
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={adminUpdatingId === admin.membership_id}
+                        type="button"
+                        onClick={() =>
+                          updateAdminStatus(
+                            admin.membership_id,
+                            admin.status === 'active' ? 'inactive' : 'active',
+                          )
+                        }
+                      >
+                        {adminUpdatingId === admin.membership_id
+                          ? 'Actualizando…'
+                          : admin.status === 'active'
+                            ? 'Desactivar'
+                            : 'Reactivar'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-semibold text-zinc-900">
+                Invitaciones
+              </h2>
+            </div>
+            {adminInvitations.length === 0 ? (
+              <p className="mt-4 text-sm text-zinc-500">
+                No hay invitaciones pendientes.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {adminInvitations.map((invite) => (
+                  <div
+                    key={invite.invitation_id}
+                    className="flex flex-col gap-2 rounded-xl border border-zinc-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {invite.email}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {invite.status === 'pending'
+                          ? 'Pendiente'
+                          : invite.status}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                      <span>
+                        Enviada:{' '}
+                        {invite.sent_at ? formatDate(invite.sent_at) : '—'}
+                      </span>
+                      <button
+                        className="text-xs font-semibold text-indigo-600 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={adminResendingId === invite.invitation_id}
+                        type="button"
+                        onClick={() =>
+                          resendAdminInvitation(invite.invitation_id)
+                        }
+                      >
+                        {adminResendingId === invite.invitation_id
+                          ? 'Reenviando…'
+                          : 'Reenviar'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

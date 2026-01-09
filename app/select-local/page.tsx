@@ -28,6 +28,25 @@ export default function SelectLocalPage() {
         return;
       }
 
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_superadmin')
+        .eq('user_id', sessionData.session.user.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (profileError) {
+        setError(profileError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (profile?.is_superadmin) {
+        router.replace('/superadmin/organizations');
+        return;
+      }
+
       const { data, error: loadError } = await supabase
         .from('v_my_locals')
         .select('*');

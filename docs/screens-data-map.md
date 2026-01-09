@@ -2,7 +2,7 @@
 
 ## Lote 0 (Auth + bootstrap)
 
-- / → public.v_my_locals
+- / → public.v_my_context + public.v_my_locals
 - /select-local → public.v_my_locals
 
 ## Lote 1 (Aprendiz)
@@ -33,8 +33,18 @@
 - /org/courses/[courseId]/quizzes/[quizId]/edit → public.v_org_quiz_detail
 - /org/locals/[localId]/courses → public.v_org_local_courses
 
+## Org Admin — Invitations
+
+- /org/locals/[localId]/members/invite → public.v_org_local_context + Edge Function: provision_local_member
+- /org/invitations → public.v_org_invitations + Edge Function: resend_invitation
+- /auth/accept-invitation → public.v_invitation_public + Edge Function: accept_invitation
+
 ## Superadmin (MVP)
 
 - /superadmin/organizations → public.v_superadmin_organizations
 - /superadmin/organizations/[orgId] → public.v_superadmin_organization_detail
+- /superadmin/organizations/[orgId] (org admins mgmt) → public.v_superadmin_organization_detail + Edge Function: provision_org_admin + rpc_superadmin_set_org_membership_status + Edge Function: resend_invitation
 - /superadmin/organizations/new → rpc_create_organization
+- /superadmin/organizations/[orgId]/locals/new → rpc_create_local
+- /superadmin/locals/[localId]/members → public.v_superadmin_local_members + public.v_superadmin_local_invitations + rpc_superadmin_set_local_membership_status + Edge Function: resend_invitation
+- /superadmin/locals/[localId]/members/new → public.v_superadmin_local_context + rpc_superadmin_add_local_member + Edge Function: provision_local_member (fallback)

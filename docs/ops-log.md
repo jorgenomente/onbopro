@@ -140,6 +140,91 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 
 - None
 
+### 2026-01-07T14:17:47Z — require password on invite acceptance
+
+**Goal**
+
+- Make invite acceptance require setting a password on first access
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/auth-accept-invitation.md
+- AGENTS.md
+
+**Files changed**
+
+- app/auth/accept-invitation/page.tsx
+- docs/screens/auth-accept-invitation.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Require password and confirmation even when the user arrives with a session
+- Update accept-invitation screen contract to reflect the first-access password flow
+
+**Validation**
+
+- [ ] Smoke invite flow (new user: set password → accept → redirected)
+- [ ] Existing user accepts invite: login required path
+
+**Notes / decisions**
+
+- Password is updated client-side when session exists before calling accept_invitation
+
+**Follow-ups**
+
+- None
+
+### 2026-01-07T13:59:21Z — surface invite email errors to UI
+
+**Goal**
+
+- Return Supabase Auth invite email errors to the frontend for diagnosis
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/\_shared/email.ts
+- supabase/functions/provision_local_member/index.ts
+- supabase/functions/resend_invitation/index.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Return structured invite email errors instead of throwing
+- Surface email invite failures from Edge Functions with error details for UI
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- None
+
+**Follow-ups**
+
+- None
+
 ### 2026-01-05T01:05:11Z — restrict lesson_completions insert to aprendiz
 
 **Goal**
@@ -1943,3 +2028,849 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 
 - Reads from public.v_superadmin_organizations and public.v_superadmin_organization_detail
 - Writes via rpc_create_organization (description is optional and not persisted)
+
+### 2026-01-06T21:05:20Z — Superadmin Create Local (RPC + UI)
+
+**Goal**
+
+- Add rpc_create_local for superadmin-only local creation
+- Implement UI /superadmin/organizations/[orgId]/locals/new
+- Wire CTA from organization detail
+
+**Files changed**
+
+- supabase/migrations/20260106233423_058_create_rpc_create_local.sql
+- scripts/rls-smoke-tests.mjs
+- app/superadmin/organizations/[orgId]/page.tsx
+- app/superadmin/organizations/[orgId]/locals/new/page.tsx
+- docs/screens/superadmin-create-local.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (147 tests)
+- [x] `npm run lint`
+- [x] `npm run build`
+
+### 2026-01-07T09:20:00Z — Superadmin Membership Mgmt (views + RPCs)
+
+**Goal**
+
+- Add Superadmin membership management views and RPCs
+- Extend superadmin org detail admins with membership_id
+
+**Files changed**
+
+- supabase/migrations/20260107090000_059_superadmin_membership_views.sql
+- supabase/migrations/20260107091000_060_superadmin_membership_rpcs.sql
+- scripts/rls-smoke-tests.mjs
+- docs/screens/superadmin-org-admins-management.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (177 tests)
+
+### 2026-01-07T09:45:00Z — Superadmin Membership Management (UI)
+
+**Goal**
+
+- Implement Superadmin UI for org admins and local members management
+- Read via superadmin views and write via superadmin RPCs
+
+**Files changed**
+
+- app/superadmin/organizations/[orgId]/page.tsx
+- app/superadmin/locals/[localId]/members/page.tsx
+- app/superadmin/locals/[localId]/members/new/page.tsx
+- docs/ops-log.md
+
+**Notes**
+
+- Reads from public.v_superadmin_organization_detail, public.v_superadmin_local_context, public.v_superadmin_local_members
+- Writes via rpc_superadmin_add_org_admin, rpc_superadmin_set_org_membership_status, rpc_superadmin_add_local_member, rpc_superadmin_set_local_membership_status
+
+**Validation**
+
+- [x] `npm run lint`
+- [x] `npm run build`
+
+### 2026-01-07T10:05:00Z — Invitations & provisioning (contracts)
+
+**Goal**
+
+- Define invitation contracts for org admin invite flow and public acceptance
+
+**Files changed**
+
+- docs/screens/org-invite-user.md
+- docs/screens/org-invitations-list.md
+- docs/screens/auth-accept-invitation.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Validation**
+
+- [ ] `docs only`
+
+### 2026-01-07T10:30:00Z — Invitations (schema + views + RLS)
+
+**Goal**
+
+- Add invitations schema with token_hash and public invitation views
+- Add org invitations view and org local context for invite screen
+
+**Files changed**
+
+- supabase/migrations/20260107100000_061_invitations_schema.sql
+- supabase/migrations/20260107101000_062_invitations_views.sql
+- scripts/rls-smoke-tests.mjs
+- docs/schema-guide.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (185 tests)
+
+### 2026-01-07T11:05:00Z — Invitations & provisioning (Edge Functions)
+
+**Goal**
+
+- Implement Edge Functions for invite provisioning and acceptance
+
+**Files changed**
+
+- supabase/functions/\_shared/auth.ts
+- supabase/functions/\_shared/db.ts
+- supabase/functions/\_shared/crypto.ts
+- supabase/functions/\_shared/email.ts
+- supabase/functions/provision_local_member/index.ts
+- supabase/functions/resend_invitation/index.ts
+- supabase/functions/accept_invitation/index.ts
+- docs/onboarding-provisioning.md
+- docs/screens/org-invite-user.md
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `supabase functions deploy provision_local_member`
+- [x] `supabase functions deploy resend_invitation`
+- [x] `supabase functions deploy accept_invitation`
+- [x] Manual QA (invite → accept, new user + resend + accept)
+
+### 2026-01-07T11:40:00Z — Invitations UI implemented
+
+**Goal**
+
+- Implement invite flows for org admin and public acceptance screens
+
+**Files changed**
+
+- lib/invokeEdge.ts
+- app/org/locals/[localId]/members/invite/page.tsx
+- app/org/invitations/page.tsx
+- app/auth/accept-invitation/page.tsx
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npm run lint`
+- [x] `npm run build`
+
+### 2026-01-07T12:20:00Z — Routing by role + header mode switch
+
+**Goal**
+
+- Add authenticated context view and role-based routing + header switch
+
+**Files changed**
+
+- supabase/migrations/20260107120000_063_create_v_my_context.sql
+- docs/screens/my-context.md
+- docs/screens-data-map.md
+- scripts/rls-smoke-tests.mjs
+- app/page.tsx
+- app/components/Header.tsx
+- docs/ops-log.md
+
+**Validation**
+
+- [x] `npx supabase db push`
+- [x] `node scripts/rls-smoke-tests.mjs` (189 tests)
+- [x] `npm run lint`
+- [x] `npm run build`
+- [ ] Manual QA (routing superadmin/org_admin/local)
+
+### 2026-01-07T13:21:24Z — superadmin invite fallback + edge CORS
+
+**Goal**
+
+- Document and enable superadmin local member invites via Edge Function fallback
+- Add CORS handling for browser-invoked Edge Functions
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- docs/screens-data-map.md
+- AGENTS.md
+
+**Files changed**
+
+- docs/screens/superadmin-add-local-member.md
+- docs/onboarding-provisioning.md
+- docs/screens-data-map.md
+- supabase/functions/\_shared/cors.ts
+- supabase/functions/provision_local_member/index.ts
+- supabase/functions/resend_invitation/index.ts
+- supabase/functions/accept_invitation/index.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Documented superadmin fallback to provision_local_member and updated screens map
+- Added shared CORS helper and preflight handling for Edge Functions used in browser
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- CORS allows APP_URL/SITE_URL and local dev origins
+
+**Follow-ups**
+
+- None
+
+### 2026-01-07T13:40:08Z — invite email via supabase auth
+
+**Goal**
+
+- Send invitation emails via Supabase Auth Invite with redirectTo to accept-invitation
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- docs/screens-data-map.md
+- AGENTS.md
+
+**Files changed**
+
+- docs/onboarding-provisioning.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- supabase/functions/\_shared/email.ts
+- supabase/functions/provision_local_member/index.ts
+- supabase/functions/resend_invitation/index.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Documented Supabase Auth Invite usage and redirectTo for onboarding
+- Implemented sendInviteEmail using admin.auth.admin.inviteUserByEmail
+- Passed invite token to email helper for redirectTo
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- APP_URL/SITE_URL must be allowlisted in Supabase Auth Redirect URLs
+
+**Follow-ups**
+
+- None
+
+### 2026-01-07T16:24:38Z — resend invite emails via edge
+
+**Goal**
+
+- Send invitation emails via Resend with ONBO token link and keep invite flow intact
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/\_shared/resend.ts
+- supabase/functions/\_shared/email/templates/invite.ts
+- supabase/functions/\_shared/email.ts
+- supabase/functions/provision_local_member/index.ts
+- supabase/functions/resend_invitation/index.ts
+- docs/onboarding-provisioning.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- docs/audit/resend-invitations.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added Resend API helper and invitation template
+- Migrated sendInviteEmail to Resend with ONBO token link
+- Updated invite/resend functions to send via Resend and set sent_at after success
+- Documented Resend invitation flow and env requirements
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Invitation emails are now fully controlled via Resend using APP_URL
+
+**Follow-ups**
+
+- Deploy updated Edge Functions and run end-to-end invite QA
+
+### 2026-01-07T16:58:40Z — assign memberships for existing auth users
+
+**Goal**
+
+- Ensure provision_local_member assigns memberships for existing Auth users without creating invitations
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/provision_local_member/index.ts
+- docs/onboarding-provisioning.md
+- docs/screens/superadmin-add-local-member.md
+- docs/screens/org-invite-user.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added Auth lookup by email and direct membership upsert for existing users
+- Preserved invite flow for new users and added mode fields to responses
+- Documented behavior in onboarding and screen contracts
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Responses keep legacy `result` fields for UI compatibility
+
+**Follow-ups**
+
+- Deploy provision_local_member and QA with existing/new emails
+
+### 2026-01-07T17:03:48Z — auth lookup via admin rest in provision_local_member
+
+**Goal**
+
+- Fix auth lookup for existing users in provision_local_member using Auth Admin REST
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/provision_local_member/index.ts
+- docs/onboarding-provisioning.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added Auth Admin REST lookup by email with service role key
+- Improved error hints for auth lookup failures
+- Documented service role requirement
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Avoided SDK admin methods to prevent Deno version mismatch
+
+**Follow-ups**
+
+- Deploy provision_local_member and re-test existing-user assignment
+
+### 2026-01-07T17:20:12Z — fix membership fetch fields in provision_local_member
+
+**Goal**
+
+- Fix membership fetch failure by selecting valid columns after upsert
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/provision_local_member/index.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Removed non-existent updated_at column from membership select
+- Added error hint for membership fetch failures
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- local_memberships does not include updated_at
+
+**Follow-ups**
+
+- Redeploy provision_local_member and re-test existing-user assignment
+
+### 2026-01-07T17:51:07Z — create minimal profile for existing auth users
+
+**Goal**
+
+- Ensure existing Auth users get a minimal profile when assigned to locals
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/provision_local_member/index.ts
+- docs/onboarding-provisioning.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added profile lookup + minimal profile insert for existing Auth users
+- Documented profile creation behavior in onboarding
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Profile insert uses email from request and sets is_superadmin=false
+
+**Follow-ups**
+
+- Deploy provision_local_member and re-test list visibility
+
+### 2026-01-07T19:17:45Z — relax v_superadmin_local_members join on profiles
+
+**Goal**
+
+- Ensure superadmin members list includes users without profiles
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-local-members.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260107191723_060_fix_v_superadmin_local_members_left_join_profiles.sql
+- docs/screens/superadmin-local-members.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Replaced INNER JOIN with LEFT JOIN on profiles in v_superadmin_local_members
+- Added email fallback for missing profiles
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- View remains scoped by rls_is_superadmin()
+
+**Follow-ups**
+
+- Apply migration and verify local members list shows existing memberships
+
+### 2026-01-08T21:23:26Z — superadmin members + invitations normalization
+
+**Goal**
+
+- Make superadmin members list resilient to missing profiles and add invitations tab
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-local-members.md
+- docs/screens-data-map.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260108212145_061_create_v_superadmin_local_invitations.sql
+- supabase/migrations/20260108212146_062_extend_v_superadmin_local_members_display_fields.sql
+- app/superadmin/locals/[localId]/members/page.tsx
+- docs/screens/superadmin-local-members.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added v_superadmin_local_invitations for invitation listing
+- Extended v_superadmin_local_members with display fields and profile existence flags
+- Updated superadmin members UI with invitations tab and missing-profile fallback
+- Documented new views and contracts
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Views remain scoped by rls_is_superadmin()
+
+**Follow-ups**
+
+- Apply migrations and validate listing for missing-profile users
+
+### 2026-01-08T21:42:04Z — backfill profiles and upsert email on provisioning
+
+**Goal**
+
+- Ensure profiles exist for memberships and fill missing profile email for existing Auth users
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/provision_local_member/index.ts
+- supabase/migrations/20260108214144_063_backfill_profiles_from_local_memberships.sql
+- docs/onboarding-provisioning.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Upserted profile email when missing for existing Auth users in provisioning
+- Added backfill migration to create missing profiles from local_memberships
+- Documented profile email completion behavior
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Profile upsert failures do not block membership assignment
+
+**Follow-ups**
+
+- Apply migration and redeploy provision_local_member
+
+### 2026-01-08T21:49:01Z — capture full_name on accept_invitation
+
+**Goal**
+
+- Collect full_name during invitation acceptance and persist to profiles
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/auth-accept-invitation.md
+- AGENTS.md
+
+**Files changed**
+
+- app/auth/accept-invitation/page.tsx
+- supabase/functions/accept_invitation/index.ts
+- docs/onboarding-provisioning.md
+- docs/screens/auth-accept-invitation.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added full_name input and validation on accept invitation UI
+- Accept_invitation now validates and persists profiles.full_name
+- Documented full_name requirement in onboarding and screen contract
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- full_name is required when profile lacks a name
+
+**Follow-ups**
+
+- Deploy accept_invitation and run end-to-end invite acceptance
+
+### 2026-01-08T21:55:44Z — superadmin edit member full_name
+
+**Goal**
+
+- Allow superadmin to edit member full_name from local members UI
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/superadmin-local-members.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/functions/superadmin_update_profile_name/index.ts
+- supabase/config.toml
+- app/superadmin/locals/[localId]/members/page.tsx
+- docs/screens/superadmin-local-members.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added superadmin_update_profile_name Edge Function with manual JWT validation
+- Added edit name modal and save flow in superadmin members UI
+- Documented new action in screen contract
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Function uses service role to verify superadmin and update profiles
+
+**Follow-ups**
+
+- Deploy superadmin_update_profile_name and QA
+
+### 2026-01-08T22:16:42Z — modal to complete profile full_name post-login
+
+**Goal**
+
+- Prompt users without full_name to complete their profile after login
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- components/profile/CompleteProfileModal.tsx
+- app/components/Header.tsx
+- docs/onboarding-provisioning.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added modal to capture full_name with own-only update via RLS
+- Triggered modal from Header when profile full_name is missing
+- Documented post-login profile completion
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Reuses existing profiles update policy (own-only)
+
+**Follow-ups**
+
+- QA login flow with missing full_name
+
+---
+
+## 2026-01-08T23:33:58Z
+
+**Goal**
+
+- Enable superadmin org admin invitations end-to-end (provision, resend, accept)
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260108232239_064_superadmin_org_admin_views.sql
+- supabase/migrations/20260109090000_065_update_superadmin_organization_detail_for_org_admin_invites.sql
+- supabase/functions/provision_org_admin/index.ts
+- supabase/functions/accept_invitation/index.ts
+- supabase/functions/resend_invitation/index.ts
+- supabase/config.toml
+- app/superadmin/organizations/[orgId]/page.tsx
+- docs/onboarding-provisioning.md
+- docs/screens/superadmin-org-admins-management.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added org admin views and extended org detail view with admin invitations
+- Implemented provision_org_admin Edge function and org_admin branch in accept_invitation
+- Updated resend_invitation for org_admin invites with local_id null
+- Switched superadmin org admins UI to provision_org_admin and added invitations list + resend
+- Documented new contracts and flow
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- Superadmin org detail keeps single-view read via v_superadmin_organization_detail
+
+**Follow-ups**
+
+- Run db push and deploy functions for org admin invitations
