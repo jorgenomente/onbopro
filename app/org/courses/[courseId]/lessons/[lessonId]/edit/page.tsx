@@ -34,9 +34,42 @@ function typeLabel(type: LessonType) {
 
 export default function OrgLessonEditorPage() {
   const params = useParams();
-  const router = useRouter();
   const courseId = params?.courseId as string;
   const lessonId = params?.lessonId as string;
+
+  if (!courseId || !lessonId) {
+    return (
+      <div className="min-h-screen bg-zinc-50 px-6 py-10">
+        <div className="mx-auto max-w-3xl">
+          <div className="rounded-2xl bg-white p-6 text-sm text-zinc-600 shadow-sm">
+            Lección no encontrada.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <OrgLessonEditorScreen
+      courseId={courseId}
+      lessonId={lessonId}
+      basePath="/org/courses"
+    />
+  );
+}
+
+type LessonEditorScreenProps = {
+  courseId: string;
+  lessonId: string;
+  basePath: string;
+};
+
+export function OrgLessonEditorScreen({
+  courseId,
+  lessonId,
+  basePath,
+}: LessonEditorScreenProps) {
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -208,7 +241,7 @@ export default function OrgLessonEditorPage() {
 
   const handleBack = () => {
     if (courseId) {
-      router.push(`/org/courses/${courseId}/outline`);
+      router.push(`${basePath}/${courseId}/outline`);
       return;
     }
     router.back();
@@ -241,14 +274,14 @@ export default function OrgLessonEditorPage() {
         </div>
 
         <div className="flex items-center gap-3 text-sm text-zinc-500">
-          <Link className="hover:text-zinc-900" href="/org/courses">
+          <Link className="hover:text-zinc-900" href={basePath}>
             Cursos
           </Link>
           <span>·</span>
           {courseId ? (
             <Link
               className="hover:text-zinc-900"
-              href={`/org/courses/${courseId}/outline`}
+              href={`${basePath}/${courseId}/outline`}
             >
               Outline
             </Link>

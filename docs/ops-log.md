@@ -2874,3 +2874,108 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Follow-ups**
 
 - Run db push and deploy functions for org admin invitations
+
+---
+
+## 2026-01-09T12:15:41Z
+
+**Goal**
+
+- Enable Course Builder create/edit/preview (org_admin) with RPCs/views and UI wiring
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109130000_066_create_rpc_create_course.sql
+- supabase/migrations/20260109130030_067_create_rpc_update_course_metadata.sql
+- supabase/migrations/20260109130100_068_create_v_org_course_metadata.sql
+- supabase/migrations/20260109130200_069_create_v_org_course_preview.sql
+- app/org/courses/new/page.tsx
+- app/org/courses/[courseId]/edit/page.tsx
+- app/org/courses/[courseId]/preview/page.tsx
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- app/components/Header.tsx
+- app/superadmin/course-library/page.tsx
+- app/superadmin/course-library/new/page.tsx
+- docs/screens/org-course-create.md
+- docs/screens/org-course-edit.md
+- docs/screens/org-course-preview.md
+- docs/audit/course-builder-wiring-checklist.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added RPCs for course creation and metadata updates with org-scoped guards
+- Added views for course metadata and read-only preview with nested outline JSON
+- Implemented create/edit/preview pages and wiring from course list/outline
+- Added superadmin course library placeholders (under construction)
+- Documented screen contracts and wiring checklist
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Reads via views only; writes via RPCs with can_manage_course()
+- Preview is read-only and does not emit progress writes
+
+**Follow-ups**
+
+- Run `npx supabase db push` for migrations 066–069
+- Execute lint/build and record results
+
+---
+
+## 2026-01-09T12:17:40Z
+
+**Goal**
+
+- Fix rpc_update_course_metadata migration syntax and push remaining migrations
+
+**Docs consulted**
+
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109130030_067_create_rpc_update_course_metadata.sql
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Fixed plpgsql `get diagnostics` syntax in rpc_update_course_metadata
+- Pushed migrations 067–069 to remote database
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+
+**Notes / decisions**
+
+- db push applied 067–069 after fixing syntax error
+
+**Follow-ups**
+
+- Smoke-check views/rpcs in UI

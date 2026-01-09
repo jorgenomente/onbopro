@@ -522,7 +522,15 @@ export default function SuperadminOrganizationDetailPage() {
           </section>
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-900">Cursos</h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-sm font-semibold text-zinc-900">Cursos</h2>
+              <Link
+                className="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                href={`/superadmin/organizations/${row.org_id}/courses`}
+              >
+                Gestionar cursos
+              </Link>
+            </div>
             {courses.length === 0 ? (
               <p className="mt-4 text-sm text-zinc-500">
                 No hay cursos registrados.

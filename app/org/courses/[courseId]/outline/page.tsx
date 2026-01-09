@@ -62,8 +62,35 @@ function lessonTypeIcon(type: LessonType) {
 
 export default function OrgCourseOutlinePage() {
   const params = useParams();
-  const router = useRouter();
   const courseId = params?.courseId as string;
+
+  if (!courseId) {
+    return (
+      <div className="min-h-screen bg-zinc-50 px-6 py-10">
+        <div className="mx-auto max-w-5xl">
+          <div className="rounded-2xl bg-white p-6 text-sm text-zinc-600 shadow-sm">
+            Curso no encontrado.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <OrgCourseOutlineScreen courseId={courseId} basePath="/org/courses" />;
+}
+
+type CourseOutlineScreenProps = {
+  courseId: string;
+  basePath: string;
+  backHref?: string;
+};
+
+export function OrgCourseOutlineScreen({
+  courseId,
+  basePath,
+  backHref,
+}: CourseOutlineScreenProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -128,6 +155,8 @@ export default function OrgCourseOutlinePage() {
 
   const units = useMemo(() => row?.units ?? [], [row]);
   const canSave = !loading && !isSaving && !!row;
+  const courseBase = `${basePath}/${courseId}`;
+  const backLink = backHref ?? basePath;
 
   const handleCreateUnit = async () => {
     if (!courseId || !canSave) return;
@@ -240,7 +269,7 @@ export default function OrgCourseOutlinePage() {
     }
 
     if (data) {
-      router.push(`/org/courses/${courseId}/quizzes/${data}/edit`);
+      router.push(`${courseBase}/quizzes/${data}/edit`);
     } else {
       await refetchOutline();
     }
@@ -266,7 +295,7 @@ export default function OrgCourseOutlinePage() {
     }
 
     if (data) {
-      router.push(`/org/courses/${courseId}/quizzes/${data}/edit`);
+      router.push(`${courseBase}/quizzes/${data}/edit`);
     } else {
       await refetchOutline();
     }
@@ -275,7 +304,7 @@ export default function OrgCourseOutlinePage() {
 
   const handleEditLesson = (lessonId: string) => {
     if (!courseId) return;
-    router.push(`/org/courses/${courseId}/lessons/${lessonId}/edit`);
+    router.push(`${courseBase}/lessons/${lessonId}/edit`);
   };
 
   return (
@@ -283,7 +312,7 @@ export default function OrgCourseOutlinePage() {
       <div className="mx-auto max-w-5xl">
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-zinc-500">
-            <Link href="/org/courses" className="font-semibold text-zinc-700">
+            <Link href={backLink} className="font-semibold text-zinc-700">
               Cursos
             </Link>
             <span>/</span>
@@ -311,13 +340,13 @@ export default function OrgCourseOutlinePage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href={`/org/courses/${courseId}/preview`}
+                  href={`${courseBase}/preview`}
                   className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                 >
                   Preview
                 </Link>
                 <Link
-                  href={`/org/courses/${courseId}/edit`}
+                  href={`${courseBase}/edit`}
                   className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
                 >
                   Editar curso
@@ -342,7 +371,7 @@ export default function OrgCourseOutlinePage() {
           <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm text-red-600">Error: {error}</p>
             <Link
-              href="/org/courses"
+              href={backLink}
               className="mt-4 inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
             >
               Volver
@@ -356,7 +385,7 @@ export default function OrgCourseOutlinePage() {
               No tenés acceso a este curso o no existe.
             </p>
             <Link
-              href="/org/courses"
+              href={backLink}
               className="mt-4 inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
             >
               Volver
@@ -468,7 +497,7 @@ export default function OrgCourseOutlinePage() {
                           </div>
                           <Link
                             className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
-                            href={`/org/courses/${courseId}/quizzes/${unit.unit_quiz.quiz_id}/edit`}
+                            href={`${courseBase}/quizzes/${unit.unit_quiz.quiz_id}/edit`}
                           >
                             Editar quiz
                           </Link>
@@ -496,11 +525,18 @@ export default function OrgCourseOutlinePage() {
                       </div>
                     )}
                     {unit.lessons.map((lesson, lessonIndex) => (
-                      <button
+                      <div
                         key={lesson.lesson_id}
-                        type="button"
                         onClick={() => handleEditLesson(lesson.lesson_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleEditLesson(lesson.lesson_id);
+                          }
+                        }}
                         className="flex w-full flex-col gap-2 rounded-xl border border-zinc-100 bg-zinc-50 p-3 text-left text-sm text-zinc-700 transition hover:border-zinc-200 hover:bg-zinc-100 sm:flex-row sm:items-center sm:justify-between"
+                        role="button"
+                        tabIndex={0}
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-lg">
@@ -576,7 +612,7 @@ export default function OrgCourseOutlinePage() {
                             Editar
                           </button>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -600,7 +636,7 @@ export default function OrgCourseOutlinePage() {
                   </div>
                   <Link
                     className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
-                    href={`/org/courses/${courseId}/quizzes/${row.final_quiz.quiz_id}/edit`}
+                    href={`${courseBase}/quizzes/${row.final_quiz.quiz_id}/edit`}
                   >
                     Editar quiz
                   </Link>

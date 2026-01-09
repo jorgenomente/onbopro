@@ -40,9 +40,42 @@ function quizTypeLabel(type: QuizDetailRow['quiz_type']) {
 
 export default function OrgQuizEditorPage() {
   const params = useParams();
-  const router = useRouter();
   const courseId = params?.courseId as string;
   const quizId = params?.quizId as string;
+
+  if (!courseId || !quizId) {
+    return (
+      <div className="min-h-screen bg-zinc-50 px-6 py-10">
+        <div className="mx-auto max-w-5xl">
+          <div className="rounded-2xl bg-white p-6 text-sm text-zinc-600 shadow-sm">
+            Quiz no encontrado.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <OrgQuizEditorScreen
+      courseId={courseId}
+      quizId={quizId}
+      basePath="/org/courses"
+    />
+  );
+}
+
+type QuizEditorScreenProps = {
+  courseId: string;
+  quizId: string;
+  basePath: string;
+};
+
+export function OrgQuizEditorScreen({
+  courseId,
+  quizId,
+  basePath,
+}: QuizEditorScreenProps) {
+  const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -365,7 +398,7 @@ export default function OrgQuizEditorPage() {
 
   const handleBack = () => {
     if (courseId) {
-      router.push(`/org/courses/${courseId}/outline`);
+      router.push(`${basePath}/${courseId}/outline`);
       return;
     }
     router.back();
@@ -376,13 +409,13 @@ export default function OrgQuizEditorPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-3">
           <nav className="flex items-center gap-2 text-xs text-zinc-500">
-            <Link href="/org/courses" className="font-semibold text-zinc-700">
+            <Link href={basePath} className="font-semibold text-zinc-700">
               Cursos
             </Link>
             <span>/</span>
             {courseId ? (
               <Link
-                href={`/org/courses/${courseId}/outline`}
+                href={`${basePath}/${courseId}/outline`}
                 className="font-semibold text-zinc-700"
               >
                 Outline

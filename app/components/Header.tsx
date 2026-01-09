@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
@@ -159,6 +160,8 @@ export default function Header({ organizationName, localName }: HeaderProps) {
 
   const showProfileModal =
     !isAuthRoute(pathname ?? '') && Boolean(userId) && profileRequired;
+  const showOrgNav =
+    Boolean(context?.has_org_admin) && pathname?.startsWith('/org');
 
   if (hideHeader && !showProfileModal) return null;
 
@@ -223,6 +226,27 @@ export default function Header({ organizationName, localName }: HeaderProps) {
               </button>
             </div>
           </div>
+          {showOrgNav ? (
+            <div className="border-t border-zinc-100">
+              <nav className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-6 py-2 text-xs font-semibold text-zinc-600">
+                <Link className="hover:text-zinc-900" href="/org/dashboard">
+                  Dashboard
+                </Link>
+                <Link className="hover:text-zinc-900" href="/org/courses">
+                  Cursos
+                </Link>
+                <Link className="hover:text-zinc-900" href="/org/alerts">
+                  Alertas
+                </Link>
+                <Link className="hover:text-zinc-900" href="/org/invitations">
+                  Invitaciones
+                </Link>
+                <Link className="hover:text-zinc-900" href="/org/courses/new">
+                  Crear curso
+                </Link>
+              </nav>
+            </div>
+          ) : null}
         </header>
       )}
       {showProfileModal && (
