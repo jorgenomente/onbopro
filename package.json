@@ -9,6 +9,8 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "smoke:blocks:catalog": "psql \"$SUPABASE_DB_URL\" -f supabase/tests/smoke_blocks_catalog.sql",
+    "smoke:blocks:flow": "psql \"$SUPABASE_DB_URL\" -f supabase/tests/smoke_blocks_flow.sql",
     "prepare": "husky"
   },
   "dependencies": {

@@ -43,7 +43,7 @@ export default function SelectLocalPage() {
       }
 
       if (profile?.is_superadmin) {
-        router.replace('/superadmin/organizations');
+        router.replace('/superadmin');
         return;
       }
 

@@ -66,6 +66,8 @@ Tablas:
 - `lesson_completions`
 - `quiz_attempts`
 - `quiz_answers`
+- `lesson_blocks` (planned)
+- `course_template_lesson_blocks` (planned)
 
 ---
 
@@ -84,6 +86,8 @@ Tablas:
 | lesson_completions | own + referente(local) + org_admin + superadmin                      | own-only               | ❌ (o own-only)               | ❌     |
 | quiz_attempts      | own + referente(local) + org_admin + superadmin                      | own-only               | ❌ (o own-only before submit) | ❌     |
 | quiz_answers       | own + referente(local) + org_admin + superadmin                      | own-only               | ❌                            | ❌     |
+| lesson_blocks      | org*admin + superadmin *(player lee por view)\_ (planned)            | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| template_blocks    | superadmin only (planned)                                            | superadmin only        | superadmin only               | ❌     |
 
 ---
 
@@ -232,6 +236,21 @@ Para mantener policies simples:
 > - `courses` tiene `id` y `org_id`.
 > - `course_units` y `lessons` NO tienen `course_id` directo (lessons solo unit_id). Si querés RLS más simple y rápida, es válido **redundar `course_id`** también en `course_units` y `lessons` (opcional, recomendado para performance).
 > - Si no redundás, vas a depender de joins en helpers (igual válido pero más costoso).
+
+### 5.1 Bloques de lección (planned)
+
+**Select**
+
+- Recomendado: solo org_admin/superadmin en tabla.
+- Player debe leer por view (v_lesson_player o similar extendida).
+
+**Insert/Update**
+
+- `rls_is_superadmin()` o `can_manage_course(course_id)` según scope.
+
+**Delete**
+
+- prohibido (archivar).
 
 ---
 

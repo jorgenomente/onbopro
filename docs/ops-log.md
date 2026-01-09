@@ -221,6 +221,39 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 
 - None
 
+---
+
+**Timestamp**
+
+- 2026-01-09T15:40:27Z
+
+**Goal**
+
+- Add CI smoke tests for lesson blocks with path-based gating
+
+**Docs consulted**
+
+- docs/ops-log.md
+- AGENTS.md
+
+**Files changed**
+
+- .github/workflows/smoke-blocks.yml
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added GitHub Actions workflow to run smoke:blocks:catalog and smoke:blocks:flow
+- Gate execution by path filters and diff-based string matching
+
+**Validation**
+
+- [ ] CI run (pending)
+
+**Notes / decisions**
+
+- Requires `SUPABASE_DB_URL` secret configured in CI
+
 **Follow-ups**
 
 - None
@@ -2979,3 +3012,274 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Follow-ups**
 
 - Smoke-check views/rpcs in UI
+
+---
+
+## 2026-01-09T13:54:47Z
+
+**Goal**
+
+- Implement Superadmin Course Library templates (schema, views, RPCs, UI, copy-to-org)
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109133000_070_create_course_templates_tables.sql
+- supabase/migrations/20260109133100_071_course_templates_rls.sql
+- supabase/migrations/20260109133200_072_create_course_template_views.sql
+- supabase/migrations/20260109133300_073_course_template_builder_rpcs.sql
+- supabase/migrations/20260109133400_074_rpc_copy_template_to_org.sql
+- app/org/courses/[courseId]/outline/page.tsx
+- app/org/courses/[courseId]/edit/page.tsx
+- app/org/courses/[courseId]/lessons/[lessonId]/edit/page.tsx
+- app/org/courses/[courseId]/quizzes/[quizId]/edit/page.tsx
+- app/superadmin/course-library/page.tsx
+- app/superadmin/course-library/new/page.tsx
+- app/superadmin/course-library/[templateId]/outline/page.tsx
+- app/superadmin/course-library/[templateId]/edit/page.tsx
+- app/superadmin/course-library/[templateId]/lessons/[lessonId]/edit/page.tsx
+- app/superadmin/course-library/[templateId]/quizzes/[quizId]/edit/page.tsx
+- docs/screens/superadmin-course-library.md
+- docs/screens/superadmin-template-outline.md
+- docs/screens/superadmin-template-lesson-editor.md
+- docs/screens/superadmin-template-quiz-editor.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added template tables, RLS, views, builder RPCs, and copy-to-org RPC
+- Implemented superadmin template UI (list, create, outline, edit, lesson/quiz editors)
+- Reused builder screens with configurable views/RPCs and superadmin guard
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Template outline view aliases template_id as course_id for UI reuse
+- Copy-to-org creates a forked course with no live link to template
+
+**Follow-ups**
+
+- Run db push for template migrations 070–074
+- Execute lint/build and record results
+
+---
+
+**Timestamp**
+
+- 2026-01-09T15:01:31Z
+
+**Goal**
+
+- Add lesson blocks model (tables, RLS, views, RPCs) and document legacy compatibility
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/org-lesson-editor.md
+- docs/screens/superadmin-template-lesson-editor.md
+- docs/screens/lesson-player.md
+- docs/audit/lesson-content-inventory.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109115804_075_create_lesson_blocks_tables.sql
+- supabase/migrations/20260109115805_076_lesson_blocks_rls.sql
+- supabase/migrations/20260109115806_077_views_lesson_blocks.sql
+- supabase/migrations/20260109115807_078_lesson_blocks_rpcs.sql
+- docs/schema-guide.md
+- docs/integrity-rules.md
+- docs/rls-cheatsheet.md
+- docs/query-patterns.md
+- docs/screens/org-lesson-editor.md
+- docs/screens/superadmin-template-lesson-editor.md
+- docs/screens/lesson-player.md
+- docs/audit/lesson-content-inventory.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added lesson block tables (org + template) with org integrity trigger, indexes, and updated_at triggers
+- Added RLS policies for blocks (org_admin/superadmin; templates superadmin-only)
+- Extended lesson views (org, template, player) to include blocks JSON array
+- Added RPCs to create/update/archive/reorder blocks
+- Documented blocks as planned model and legacy compatibility in schema and screens
+
+**Validation**
+
+- [ ] RLS enabled on new tables
+- [ ] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [ ] Supporting indexes added for policy predicates
+- [ ] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Blocks are read by views; player remains legacy-first until UI is updated
+- No delete policies; archive uses `archived_at`
+
+**Follow-ups**
+
+- Run `npx supabase db push`
+- Update lesson editor UI to use blocks and keep legacy fallback
+
+---
+
+**Timestamp**
+
+- 2026-01-09T15:11:01Z
+
+**Goal**
+
+- Enable blocks editor UX and metadata RPCs for lessons (org + templates)
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/org-lesson-editor.md
+- docs/screens/superadmin-template-lesson-editor.md
+- docs/screens/lesson-player.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109120547_079_lesson_metadata_rpcs.sql
+- app/org/courses/[courseId]/outline/page.tsx
+- app/org/courses/[courseId]/lessons/[lessonId]/edit/page.tsx
+- app/superadmin/course-library/[templateId]/outline/page.tsx
+- app/superadmin/course-library/[templateId]/lessons/[lessonId]/edit/page.tsx
+- docs/screens/org-lesson-editor.md
+- docs/screens/superadmin-template-lesson-editor.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added lesson metadata RPCs for org and templates (title/is_required/estimated_minutes)
+- Lesson creation now asks only for title and defaults lesson_type
+- Lesson editor now manages blocks (create/update/reorder/archive) with legacy content read-only
+- Template lesson editor wired to template block RPCs and metadata RPC
+
+**Validation**
+
+- [x] RLS enabled on new tables
+- [x] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [x] Supporting indexes added for policy predicates
+- [x] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Metadata updates are separated from legacy content updates via new RPCs
+- Blocks are the primary editor UX; legacy content is read-only
+
+**Follow-ups**
+
+- Run manual QA: create blocks, reorder, archive, verify persistence
+
+---
+
+**Timestamp**
+
+- 2026-01-09T15:37:02Z
+
+**Goal**
+
+- Fix template copy-to-org to preserve lesson blocks and verify via smoke tests
+
+**Docs consulted**
+
+- docs/migrations-playbook.md
+- docs/audit/blocks-smoke-results.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109123549_080_copy_template_blocks.sql
+- supabase/tests/smoke_blocks_catalog.sql
+- supabase/tests/smoke_blocks_flow.sql
+- docs/audit/blocks-smoke-results.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Extended rpc_copy_template_to_org to copy template lesson blocks into lesson_blocks
+- Re-ran blocks smoke tests and recorded results
+
+**Validation**
+
+- [x] RLS enabled on new tables
+- [x] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [x] Supporting indexes added for policy predicates
+- [x] Integrity triggers/constraints added or verified
+- [x] Smoke queries / expected access paths verified
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Blocks are copied only when not archived in templates
+
+**Follow-ups**
+
+- Optional: run lint/build if required for this change set
+
+---
+
+**Timestamp**
+
+- 2026-01-09T15:37:53Z
+
+**Goal**
+
+- Confirm lint/build after copy-to-org blocks fix
+
+**Docs consulted**
+
+- AGENTS.md
+
+**Files changed**
+
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Ran lint and build successfully for the latest blocks changes
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- None

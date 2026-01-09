@@ -49,13 +49,19 @@ export default function OrgCourseEditPage() {
 type CourseEditScreenProps = {
   courseId: string;
   basePath: string;
+  metadataView?: string;
+  updateRpc?: string;
 };
 
 export function OrgCourseEditScreen({
   courseId,
   basePath,
+  metadataView,
+  updateRpc,
 }: CourseEditScreenProps) {
   const router = useRouter();
+  const viewName = metadataView ?? 'v_org_course_metadata';
+  const rpcName = updateRpc ?? 'rpc_update_course_metadata';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -75,7 +81,7 @@ export function OrgCourseEditScreen({
     setError('');
 
     const { data, error: fetchError } = await supabase
-      .from('v_org_course_metadata')
+      .from(viewName)
       .select('*')
       .eq('course_id', courseId)
       .maybeSingle();
@@ -104,7 +110,7 @@ export function OrgCourseEditScreen({
       setError('');
 
       const { data, error: fetchError } = await supabase
-        .from('v_org_course_metadata')
+        .from(viewName)
         .select('*')
         .eq('course_id', courseId)
         .maybeSingle();
@@ -131,7 +137,7 @@ export function OrgCourseEditScreen({
     return () => {
       cancelled = true;
     };
-  }, [courseId]);
+  }, [courseId, viewName]);
 
   const handleSave = async () => {
     if (!courseId) return;
@@ -145,15 +151,12 @@ export function OrgCourseEditScreen({
     setError('');
     setSuccess('');
 
-    const { error: rpcError } = await supabase.rpc(
-      'rpc_update_course_metadata',
-      {
-        p_course_id: courseId,
-        p_title: trimmedTitle,
-        p_description: description.trim() || null,
-        p_status: status,
-      },
-    );
+    const { error: rpcError } = await supabase.rpc(rpcName, {
+      p_course_id: courseId,
+      p_title: trimmedTitle,
+      p_description: description.trim() || null,
+      p_status: status,
+    });
 
     setSaving(false);
 

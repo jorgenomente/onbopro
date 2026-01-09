@@ -116,7 +116,7 @@ export default function Header({ organizationName, localName }: HeaderProps) {
 
   const handleLogoClick = () => {
     if (pathname?.startsWith('/superadmin')) {
-      router.push('/superadmin/organizations');
+      router.push('/superadmin');
       return;
     }
     if (pathname?.startsWith('/org')) {
@@ -155,7 +155,7 @@ export default function Header({ organizationName, localName }: HeaderProps) {
   };
 
   const handleSuperadminMode = () => {
-    router.push('/superadmin/organizations');
+    router.push('/superadmin');
   };
 
   const showProfileModal =

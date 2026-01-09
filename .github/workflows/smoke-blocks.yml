@@ -1,0 +1,76 @@
+name: Smoke Blocks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'app/**/lessons/**'
+      - 'app/**/course-library/**'
+      - 'app/**/course-library/**/**'
+  push:
+    paths:
+      - 'supabase/migrations/**'
+      - 'app/**/lessons/**'
+      - 'app/**/course-library/**'
+      - 'app/**/course-library/**/**'
+
+jobs:
+  smoke-blocks:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Decide if smoke should run
+        id: decide
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE_SHA" "${{ github.sha }}")
+          echo "$CHANGED" | grep -E "supabase/migrations/|app/.*/lessons/|app/.*/course-library/" >/dev/null && {
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          echo "$CHANGED" | xargs -I{} sh -c "grep -E -n \"lesson_blocks|rpc_copy_template_to_org\" \"{}\" >/dev/null 2>&1" && {
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          echo "should_run=false" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke blocks catalog
+        if: steps.decide.outputs.should_run == 'true'
+        run: npm run smoke:blocks:catalog
+
+      - name: Smoke blocks flow
+        if: steps.decide.outputs.should_run == 'true'
+        run: npm run smoke:blocks:flow

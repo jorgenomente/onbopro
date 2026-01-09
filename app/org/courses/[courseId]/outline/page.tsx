@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
@@ -83,12 +83,42 @@ type CourseOutlineScreenProps = {
   courseId: string;
   basePath: string;
   backHref?: string;
+  outlineView?: string;
+  rpcConfig?: OutlineRpcConfig;
+  extraActions?: ReactNode;
+  showPreview?: boolean;
+};
+
+type OutlineRpcConfig = {
+  createUnit: string;
+  reorderUnits: string;
+  createLesson: string;
+  reorderLessons: string;
+  createUnitQuiz: string;
+  createFinalQuiz: string;
+  courseParamKey?: 'p_course_id' | 'p_template_id';
+  defaultLessonType?: LessonType;
+};
+
+const DEFAULT_OUTLINE_RPC: OutlineRpcConfig = {
+  createUnit: 'rpc_create_course_unit',
+  reorderUnits: 'rpc_reorder_course_units',
+  createLesson: 'rpc_create_unit_lesson',
+  reorderLessons: 'rpc_reorder_unit_lessons',
+  createUnitQuiz: 'rpc_create_unit_quiz',
+  createFinalQuiz: 'rpc_create_final_quiz',
+  courseParamKey: 'p_course_id',
+  defaultLessonType: 'text',
 };
 
 export function OrgCourseOutlineScreen({
   courseId,
   basePath,
   backHref,
+  outlineView,
+  rpcConfig,
+  extraActions,
+  showPreview = true,
 }: CourseOutlineScreenProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -96,6 +126,17 @@ export function OrgCourseOutlineScreen({
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [row, setRow] = useState<CourseOutlineRow | null>(null);
+  const [lessonModalOpen, setLessonModalOpen] = useState(false);
+  const [lessonModalUnitId, setLessonModalUnitId] = useState<string | null>(
+    null,
+  );
+  const [lessonTitle, setLessonTitle] = useState('');
+  const [lessonModalError, setLessonModalError] = useState('');
+  const viewName = outlineView ?? 'v_org_course_outline';
+  const rpcNames = rpcConfig ?? DEFAULT_OUTLINE_RPC;
+  const courseParamKey = rpcNames.courseParamKey ?? 'p_course_id';
+  const buildCourseArgs = (value: string) =>
+    ({ [courseParamKey]: value }) as Record<string, string>;
 
   const refetchOutline = async () => {
     if (!courseId) return;
@@ -103,7 +144,7 @@ export function OrgCourseOutlineScreen({
     setError('');
 
     const { data, error: fetchError } = await supabase
-      .from('v_org_course_outline')
+      .from(viewName)
       .select('*')
       .eq('course_id', courseId)
       .maybeSingle();
@@ -128,7 +169,7 @@ export function OrgCourseOutlineScreen({
       setError('');
 
       const { data, error: fetchError } = await supabase
-        .from('v_org_course_outline')
+        .from(viewName)
         .select('*')
         .eq('course_id', courseId)
         .maybeSingle();
@@ -151,7 +192,7 @@ export function OrgCourseOutlineScreen({
     return () => {
       cancelled = true;
     };
-  }, [courseId]);
+  }, [courseId, viewName]);
 
   const units = useMemo(() => row?.units ?? [], [row]);
   const canSave = !loading && !isSaving && !!row;
@@ -165,8 +206,8 @@ export function OrgCourseOutlineScreen({
     setIsSaving(true);
     setActionError(null);
 
-    const { error: rpcError } = await supabase.rpc('rpc_create_course_unit', {
-      p_course_id: courseId,
+    const { error: rpcError } = await supabase.rpc(rpcNames.createUnit, {
+      ...buildCourseArgs(courseId),
       p_title: title.trim(),
     });
 
@@ -185,8 +226,8 @@ export function OrgCourseOutlineScreen({
     setIsSaving(true);
     setActionError(null);
 
-    const { error: rpcError } = await supabase.rpc('rpc_reorder_course_units', {
-      p_course_id: courseId,
+    const { error: rpcError } = await supabase.rpc(rpcNames.reorderUnits, {
+      ...buildCourseArgs(courseId),
       p_unit_ids: newOrder,
     });
 
@@ -200,33 +241,41 @@ export function OrgCourseOutlineScreen({
     setIsSaving(false);
   };
 
-  const handleCreateLesson = async (unitId: string) => {
+  const openLessonModal = (unitId: string) => {
     if (!canSave) return;
-    const title = window.prompt('Titulo de la leccion');
-    if (!title?.trim()) return;
-    const type = window.prompt(
-      'Tipo de leccion (text, html, richtext, video, file, link)',
-      'text',
-    );
-    if (!type) return;
-    const lessonType = type.trim();
+    setLessonModalUnitId(unitId);
+    setLessonTitle('');
+    setLessonModalError('');
+    setLessonModalOpen(true);
+  };
+
+  const handleCreateLesson = async () => {
+    if (!canSave || !lessonModalUnitId) return;
+    const trimmedTitle = lessonTitle.trim();
+    if (!trimmedTitle) {
+      setLessonModalError('Ingresá un título para la lección.');
+      return;
+    }
+
     setIsSaving(true);
     setActionError(null);
+    setLessonModalError('');
 
-    const { error: rpcError } = await supabase.rpc('rpc_create_unit_lesson', {
-      p_unit_id: unitId,
-      p_title: title.trim(),
-      p_lesson_type: lessonType,
+    const { error: rpcError } = await supabase.rpc(rpcNames.createLesson, {
+      p_unit_id: lessonModalUnitId,
+      p_title: trimmedTitle,
+      p_lesson_type: rpcNames.defaultLessonType ?? 'text',
       p_is_required: true,
     });
 
     if (rpcError) {
-      setActionError(rpcError.message);
+      setLessonModalError(rpcError.message);
       setIsSaving(false);
       return;
     }
 
     await refetchOutline();
+    setLessonModalOpen(false);
     setIsSaving(false);
   };
 
@@ -235,7 +284,7 @@ export function OrgCourseOutlineScreen({
     setIsSaving(true);
     setActionError(null);
 
-    const { error: rpcError } = await supabase.rpc('rpc_reorder_unit_lessons', {
+    const { error: rpcError } = await supabase.rpc(rpcNames.reorderLessons, {
       p_unit_id: unitId,
       p_lesson_ids: newOrder,
     });
@@ -256,7 +305,7 @@ export function OrgCourseOutlineScreen({
     setActionError(null);
 
     const { data, error: rpcError } = await supabase.rpc(
-      'rpc_create_unit_quiz',
+      rpcNames.createUnitQuiz,
       {
         p_unit_id: unitId,
       },
@@ -282,10 +331,8 @@ export function OrgCourseOutlineScreen({
     setActionError(null);
 
     const { data, error: rpcError } = await supabase.rpc(
-      'rpc_create_final_quiz',
-      {
-        p_course_id: courseId,
-      },
+      rpcNames.createFinalQuiz,
+      buildCourseArgs(courseId),
     );
 
     if (rpcError) {
@@ -339,18 +386,21 @@ export function OrgCourseOutlineScreen({
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`${courseBase}/preview`}
-                  className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-                >
-                  Preview
-                </Link>
+                {showPreview ? (
+                  <Link
+                    href={`${courseBase}/preview`}
+                    className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                  >
+                    Preview
+                  </Link>
+                ) : null}
                 <Link
                   href={`${courseBase}/edit`}
                   className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
                 >
                   Editar curso
                 </Link>
+                {extraActions}
               </div>
             </div>
           </div>
@@ -480,7 +530,7 @@ export function OrgCourseOutlineScreen({
                         className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:bg-zinc-100"
                         type="button"
                         disabled={!canSave}
-                        onClick={() => void handleCreateLesson(unit.unit_id)}
+                        onClick={() => openLessonModal(unit.unit_id)}
                       >
                         + Lección
                       </button>
@@ -658,6 +708,71 @@ export function OrgCourseOutlineScreen({
           </>
         )}
       </div>
+
+      {lessonModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold tracking-wide text-zinc-400 uppercase">
+                  Nueva lección
+                </p>
+                <h2 className="mt-2 text-lg font-semibold text-zinc-900">
+                  Crear lección
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                onClick={() => setLessonModalOpen(false)}
+                disabled={isSaving}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <label className="text-sm font-medium text-zinc-700">
+                Título
+              </label>
+              <input
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400"
+                type="text"
+                placeholder="Ej: Introducción al curso"
+                value={lessonTitle}
+                onChange={(event) => setLessonTitle(event.target.value)}
+              />
+            </div>
+
+            <p className="mt-5 text-xs text-zinc-500">
+              Podés agregar bloques y ajustar el contenido luego en el editor.
+            </p>
+
+            {lessonModalError && (
+              <p className="mt-4 text-sm text-red-600">{lessonModalError}</p>
+            )}
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                onClick={() => setLessonModalOpen(false)}
+                disabled={isSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={() => void handleCreateLesson()}
+                disabled={isSaving || !lessonTitle.trim()}
+              >
+                {isSaving ? 'Creando…' : 'Crear lección'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -104,6 +104,38 @@ order by position;
 
 > RLS debe permitir lectura solo si el curso está asignado a un local del usuario o si es admin.
 
+### Lecciones con bloques (planned)
+
+En el editor, los bloques deben provenir de una vista que agregue los bloques
+activos por lección (ordenados por position). El player debería leer los
+bloques desde una vista read-only para evitar acceso directo a tablas base.
+
+Ejemplo (conceptual):
+
+```sql
+select
+  l.id as lesson_id,
+  l.title,
+  l.content_type,
+  l.content,
+  coalesce(blocks.blocks, '[]'::jsonb) as blocks
+from lessons l
+left join lateral (
+  select jsonb_agg(
+    jsonb_build_object(
+      'block_id', b.block_id,
+      'block_type', b.block_type,
+      'data', b.data,
+      'position', b.position
+    )
+    order by b.position
+  ) as blocks
+  from lesson_blocks b
+  where b.lesson_id = l.id
+    and b.archived_at is null
+) blocks on true;
+```
+
 ---
 
 ## 4. Progreso del aprendiz (dashboard personal)

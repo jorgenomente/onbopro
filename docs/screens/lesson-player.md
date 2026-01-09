@@ -27,6 +27,7 @@
 - lesson_position integer — orden de la leccion — single row
 - content_type text — tipo de contenido (ej: video, texto)
 - content jsonb — payload de contenido
+- blocks jsonb — lista de bloques (planned) — single row
 - is_completed boolean — true si hay completion del usuario
 - completed_at timestamptz — fecha de completion o null
 - can_mark_complete boolean — true si no esta completada
@@ -40,7 +41,8 @@
 ## UI derivable (solo desde columnas reales)
 
 - Titulo de leccion: lesson_title
-- Contenido: content_type + content
+- Contenido: content_type + content (legacy)
+- Contenido (planned): blocks
 - Estado de progreso: is_completed + completed_at
 - Navegacion: prev_lesson_id / next_lesson_id
 
@@ -59,6 +61,7 @@
 - No hay metadata de duracion de leccion.
 - No hay nombre del local.
 - Si prev/next es null, la UI debe mostrar fallback (volver al outline).
+- blocks (planned) aun no integrados en player.
 
 ## Write paths
 

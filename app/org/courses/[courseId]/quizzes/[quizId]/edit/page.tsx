@@ -68,14 +68,44 @@ type QuizEditorScreenProps = {
   courseId: string;
   quizId: string;
   basePath: string;
+  detailView?: string;
+  rpcConfig?: QuizRpcConfig;
+};
+
+type QuizRpcConfig = {
+  updateMetadata: string;
+  createQuestion: string;
+  updateQuestion: string;
+  reorderQuestions: string;
+  archiveQuestion: string;
+  createChoice: string;
+  updateChoice: string;
+  reorderChoices: string;
+  setCorrectChoice: string;
+};
+
+const DEFAULT_QUIZ_RPC: QuizRpcConfig = {
+  updateMetadata: 'rpc_update_quiz_metadata',
+  createQuestion: 'rpc_create_quiz_question',
+  updateQuestion: 'rpc_update_quiz_question',
+  reorderQuestions: 'rpc_reorder_quiz_questions',
+  archiveQuestion: 'rpc_archive_quiz_question',
+  createChoice: 'rpc_create_quiz_choice',
+  updateChoice: 'rpc_update_quiz_choice',
+  reorderChoices: 'rpc_reorder_quiz_choices',
+  setCorrectChoice: 'rpc_set_quiz_correct_choice',
 };
 
 export function OrgQuizEditorScreen({
   courseId,
   quizId,
   basePath,
+  detailView,
+  rpcConfig,
 }: QuizEditorScreenProps) {
   const router = useRouter();
+  const viewName = detailView ?? 'v_org_quiz_detail';
+  const rpcNames = rpcConfig ?? DEFAULT_QUIZ_RPC;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -123,7 +153,7 @@ export function OrgQuizEditorScreen({
     setError('');
 
     const { data, error: fetchError } = await supabase
-      .from('v_org_quiz_detail')
+      .from(viewName)
       .select('*')
       .eq('quiz_id', quizId)
       .maybeSingle();
@@ -152,7 +182,7 @@ export function OrgQuizEditorScreen({
       setError('');
 
       const { data, error: fetchError } = await supabase
-        .from('v_org_quiz_detail')
+        .from(viewName)
         .select('*')
         .eq('quiz_id', quizId)
         .maybeSingle();
@@ -179,7 +209,7 @@ export function OrgQuizEditorScreen({
     return () => {
       cancelled = true;
     };
-  }, [quizId]);
+  }, [quizId, viewName]);
 
   const questions = useMemo(() => {
     const list = row?.questions ?? [];
@@ -216,7 +246,7 @@ export function OrgQuizEditorScreen({
     }
 
     setIsSaving(true);
-    const { error: rpcError } = await supabase.rpc('rpc_update_quiz_metadata', {
+    const { error: rpcError } = await supabase.rpc(rpcNames.updateMetadata, {
       p_quiz_id: quizId,
       p_title: trimmedTitle,
       p_description: description.trim() || null,
@@ -244,7 +274,7 @@ export function OrgQuizEditorScreen({
     }
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_update_quiz_question', {
+    const { error } = await supabase.rpc(rpcNames.updateQuestion, {
       p_question_id: questionId,
       p_prompt: prompt,
     });
@@ -262,7 +292,7 @@ export function OrgQuizEditorScreen({
   const handleArchiveQuestion = async (questionId: string) => {
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_archive_quiz_question', {
+    const { error } = await supabase.rpc(rpcNames.archiveQuestion, {
       p_question_id: questionId,
     });
 
@@ -280,7 +310,7 @@ export function OrgQuizEditorScreen({
     if (!quizId) return;
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_create_quiz_question', {
+    const { error } = await supabase.rpc(rpcNames.createQuestion, {
       p_quiz_id: quizId,
       p_prompt: 'Nueva pregunta',
     });
@@ -299,7 +329,7 @@ export function OrgQuizEditorScreen({
     if (!quizId) return;
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_reorder_quiz_questions', {
+    const { error } = await supabase.rpc(rpcNames.reorderQuestions, {
       p_quiz_id: quizId,
       p_question_ids: newOrder,
     });
@@ -317,7 +347,7 @@ export function OrgQuizEditorScreen({
   const handleCreateChoice = async (questionId: string) => {
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_create_quiz_choice', {
+    const { error } = await supabase.rpc(rpcNames.createChoice, {
       p_question_id: questionId,
       p_text: 'Nueva opción',
       p_is_correct: false,
@@ -341,7 +371,7 @@ export function OrgQuizEditorScreen({
     }
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_update_quiz_choice', {
+    const { error } = await supabase.rpc(rpcNames.updateChoice, {
       p_choice_id: choiceId,
       p_text: text,
       p_is_correct: null,
@@ -360,7 +390,7 @@ export function OrgQuizEditorScreen({
   const handleSetCorrect = async (questionId: string, choiceId: string) => {
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_set_quiz_correct_choice', {
+    const { error } = await supabase.rpc(rpcNames.setCorrectChoice, {
       p_question_id: questionId,
       p_choice_id: choiceId,
     });
@@ -381,7 +411,7 @@ export function OrgQuizEditorScreen({
   ) => {
     setIsSaving(true);
     setActionError('');
-    const { error } = await supabase.rpc('rpc_reorder_quiz_choices', {
+    const { error } = await supabase.rpc(rpcNames.reorderChoices, {
       p_question_id: questionId,
       p_choice_ids: newOrder,
     });

@@ -201,6 +201,50 @@ Evita estados ambiguos y lógica compleja en frontend.
 
 ---
 
+## 3.1 Reglas de bloques (planned)
+
+### IR-18: Un bloque pertenece a una única lección
+
+**Regla**
+`lesson_blocks.lesson_id` debe existir en `lessons.id`.
+
+**Motivo**
+Evita bloques huérfanos y estados inconsistentes.
+
+**Enforcement (plan)**
+
+- FK directa `lesson_blocks.lesson_id → lessons.id`
+
+---
+
+### IR-19: Orden único de bloques activos
+
+**Regla**
+Para una lección, los bloques activos no pueden compartir `position`.
+
+**Motivo**
+Garantiza orden determinístico en el editor y player.
+
+**Enforcement (plan)**
+
+- Unique parcial `(lesson_id, position) where archived_at is null`
+- O validación en RPC si no se usa unique parcial
+
+---
+
+### IR-20: Soft delete de bloques
+
+**Regla**
+Bloques no se borran; se archivan (`archived_at`).
+
+**Motivo**
+Histórico y seguridad operacional.
+
+**Enforcement (plan)**
+
+- No policies DELETE
+- RPC `archive` setea `archived_at`
+
 ## 4. Reglas de Asignación (local_courses)
 
 ### IR-10: Un curso se asigna una sola vez por local

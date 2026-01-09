@@ -49,7 +49,7 @@ export default function Home() {
       }
 
       if (data.is_superadmin) {
-        router.replace('/superadmin/organizations');
+        router.replace('/superadmin');
         return;
       }
 

@@ -239,13 +239,43 @@ Lecciones dentro de una unidad.
 
 Campos:
 
-- `content_type` (video, texto, etc.)
-- `content` (jsonb)
+- `content_type` (video, texto, etc.) **legacy**
+- `content` (jsonb) **legacy**
+- `estimated_minutes`
+- `is_required`
+
+Bloques (planned):
+
+- `lesson_blocks` (tabla separada)
+- Cada bloque define `block_type`, `data`, `position` y `archived_at`.
 
 Reglas:
 
 - `unique(unit_id, position)`
 - El aprendiz **no ve lecciones** si el curso no está asignado a su local.
+
+Notas:
+
+- El player actual lee `content_type + content`. El modelo por blocks debe
+  convivir con legacy hasta migrar el player.
+
+### lesson_blocks (planned)
+
+Bloques de contenido para lecciones (modelo PRO).
+
+Campos clave (plan):
+
+- `lesson_id`
+- `block_type`
+- `data` (jsonb)
+- `position`
+- `archived_at`
+- `org_id` (redundante para RLS)
+
+Reglas (plan):
+
+- Orden por `position`.
+- Archivar en lugar de borrar.
 
 ---
 
