@@ -24,7 +24,6 @@ Basado en `docs/screens-data-map.md` + rutas reales en `app/org/**`.
 - `/org/courses/[courseId]/outline` → `public.v_org_course_outline` (docs/screens/org-course-outline.md)
 - `/org/courses/[courseId]/lessons/[lessonId]/edit` → `public.v_org_lesson_detail` (docs/screens/org-lesson-editor.md)
 - `/org/courses/[courseId]/quizzes/[quizId]/edit` → `public.v_org_quiz_detail` (docs/screens/org-quiz-editor.md)
-- `/org/courses/new` → placeholder UI (sin data) (app/org/courses/new/page.tsx)
 - `/org/courses/[courseId]/edit` → placeholder UI (sin data) (app/org/courses/[courseId]/edit/page.tsx)
 - `/org/courses/[courseId]/preview` → placeholder UI (sin data) (app/org/courses/[courseId]/preview/page.tsx)
 
@@ -147,7 +146,7 @@ A validar / no definido en el repo:
 
 ## 5. Inconsistencias y riesgos
 
-- **Pantallas placeholder** (`/org/courses/new`, `/org/courses/[courseId]/edit`, `/org/courses/[courseId]/preview`) existen en UI pero sin contratos ni lógica; pueden confundir el alcance real.
+- **Pantallas placeholder** (`/org/courses/[courseId]/edit`, `/org/courses/[courseId]/preview`) existen en UI pero sin contratos ni lógica; pueden confundir el alcance real.
 - **Riesgo de scope implícito en RPCs**: los RPCs de course builder no están documentados en `docs/screens/` con reglas de autorización explícitas.
 - **Posibles joins con `profiles`**: si alguna vista usa `JOIN profiles` (inner) puede ocultar usuarios sin profile. No verificado en SQL de `v_org_*` (a validar).
 - **“Admin” no tiene UI para administración organizacional** (settings, org admins, o membresías org). Esto contradice parcialmente la expectativa del rol en docs/schema-guide.md.
@@ -157,13 +156,13 @@ A validar / no definido en el repo:
 - Crear/editar organización (no aplica a org_admin) y settings de org (no existen).
 - Crear locales desde UI org_admin (no hay `/org/locals/new`).
 - Gestión de org_admins o miembros de org (no hay pantalla /org/admins).
-- Creación de cursos desde UI (pantalla “new” es placeholder).
+- Creación de cursos desde UI (no existe ruta para org_admin).
 - Gestión de categorías/metadata de cursos (edit placeholder).
 - Dashboard de miembros org (lista global de usuarios) no existe.
 
 ## 7. Funcionalidades a remover u ocultar
 
-- En UX actual, los placeholders “Create Course”, “Edit Course”, “Course Preview” podrían ocultarse si no están en roadmap inmediato (o señalizarse explícitamente como “coming soon”).
+- En UX actual, los placeholders “Edit Course” y “Course Preview” podrían ocultarse si no están en roadmap inmediato (o señalizarse explícitamente como “coming soon”).
 - Links o CTAs hacia rutas sin contrato documentado deberían ocultarse para org_admin si no están operativas.
 
 ## 8. Recomendaciones preliminares

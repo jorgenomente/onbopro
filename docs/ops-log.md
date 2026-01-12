@@ -254,6 +254,101 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 
 - Requires `SUPABASE_DB_URL` secret configured in CI
 
+---
+
+**Timestamp**
+
+- 2026-01-09T16:29:37Z
+
+**Goal**
+
+- Remove /org/courses/new and clean org admin UI/docs references
+
+**Docs consulted**
+
+- docs/migrations-playbook.md
+- docs/screens/org-course-list.md
+- docs/screens/org-course-create.md
+- AGENTS.md
+
+**Files changed**
+
+- app/components/Header.tsx
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- docs/audit/admin-scope-audit.md
+- docs/audit/course-builder-audit.md
+- docs/audit/course-builder-wiring-checklist.md
+- docs/audit/org-admin-route-accessibility.md
+- docs/audit/org-admin-ux-plan.dev.md
+- docs/audit/org-admin-ux-plan.md
+- docs/audit/ui-course-builder-walkthrough.md
+- docs/screens/org-course-list.md
+- docs/screens/org-course-create.md
+- docs/ops-log.md
+- app/org/courses/new/page.tsx (deleted)
+
+**Changes (summary)**
+
+- Removed org admin navigation and route for /org/courses/new
+- Updated UX to use modals for unit creation and direct lesson navigation
+- Cleaned audit docs to reflect removal of course creation route
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Org admin can edit courses but cannot create new courses
+
+---
+
+**Timestamp**
+
+- 2026-01-09T16:52:23Z
+
+**Goal**
+
+- Refocus org dashboard on local operations and add counts for referentes/cursos activos
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/org-dashboard.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109135032_081_extend_v_org_dashboard_counts.sql
+- app/org/dashboard/page.tsx
+- docs/screens/org-dashboard.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Extended v_org_dashboard with referentes_count and active_courses_count
+- Updated dashboard UI to show local operational cards with stats and CTAs
+
+**Validation**
+
+- [x] RLS enabled on new tables
+- [x] Policies reviewed for SELECT/INSERT/UPDATE (no DELETE)
+- [x] Supporting indexes added for policy predicates
+- [x] Integrity triggers/constraints added or verified
+- [ ] Smoke queries / expected access paths verified
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Status ordering is handled in the view; UI preserves order
+
 **Follow-ups**
 
 - None
@@ -3283,3 +3378,496 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Notes / decisions**
 
 - None
+
+---
+
+**Timestamp**
+
+- 2026-01-09T17:11:23Z
+
+**Goal**
+
+- Replace org_id input with organization selector in template copy modal and keep single-view read
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109140925_082_extend_v_superadmin_course_template_outline_orgs.sql
+- app/org/courses/[courseId]/outline/page.tsx
+- app/superadmin/course-library/[templateId]/outline/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Extended v_superadmin_course_template_outline with organizations list (name + admin_email + status)
+- Updated outline screen to allow extraActions render with row data
+- Replaced org_id text input with searchable organization selector in copy modal
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Kept single-view read by embedding organizations list into v_superadmin_course_template_outline
+
+**Follow-ups**
+
+- Run lint/build after applying the migration
+
+---
+
+**Timestamp**
+
+- 2026-01-09T17:24:53Z
+
+**Goal**
+
+- Add local assignment context to org courses list and explicit Edit CTA
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109142417_083_extend_v_org_courses_assignments.sql
+- app/org/courses/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Extended v_org_courses with assigned_locals_count and assigned_locals_names from active local_courses
+- Added assignment context line and explicit Edit button on org courses cards
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Assignment list shows names for up to 2 locals, otherwise total count
+
+**Follow-ups**
+
+- Run lint/build after applying the migration
+
+---
+
+**Timestamp**
+
+- 2026-01-09T17:39:58Z
+
+**Goal**
+
+- Add course-to-locals assignment from /org/courses using local_courses as source of truth
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260109143832_084_extend_v_org_courses_locals_picker.sql
+- supabase/migrations/20260109143852_085_course_locals_assignment_rpcs.sql
+- app/org/courses/page.tsx
+- docs/screens/org-course-list.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Extended v_org_courses with assigned_local_ids and org_locals list for single-view read
+- Added rpc_set_course_locals to assign locals by course (mirrors rpc_set_local_courses)
+- Added Assign Locals modal and wiring in /org/courses
+- Updated screen contract for org course list
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Kept /org/courses read contract to a single view by embedding org_locals in v_org_courses
+
+**Follow-ups**
+
+- Run lint/build after applying migrations
+
+---
+
+**Timestamp**
+
+- 2026-01-10T13:32:58Z
+
+**Goal**
+
+- Add org admin invite modal and local invitations section using existing Edge pipeline
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260110102838_086_create_v_org_invitations_context.sql
+- supabase/migrations/20260110102857_087_extend_v_org_local_detail_invitations.sql
+- components/org/InviteMemberModal.tsx
+- app/org/invitations/page.tsx
+- app/org/locals/[localId]/page.tsx
+- docs/screens/org-invitations-list.md
+- docs/screens/org-local-detail.md
+- docs/screens-data-map.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added v_org_invitations_context to provide invitations + org_locals for /org/invitations
+- Extended v_org_local_detail with local invitations array
+- Added reusable InviteMemberModal (Edge provision_local_member)
+- Added invite CTA on /org/invitations and /org/locals/[localId] with preselected local
+- Added invitations section and resend actions on local detail
+- Updated screen contracts and data map
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- /org/invitations now reads a single context view to keep one-screen-one-view
+
+**Follow-ups**
+
+- Run lint/build after applying migrations
+
+---
+
+**Timestamp**
+
+- 2026-01-10T15:01:39Z
+
+**Goal**
+
+- Adjust v_org_dashboard risk rules to avoid false At Risk for not-started locals
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/audit/local-at-risk-audit.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260110120028_088_adjust_v_org_dashboard_risk_rules.sql
+- docs/audit/local-at-risk-audit.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Updated v_org_dashboard status calculation to treat not-started locals as on_track
+- Added risk_reason = 'not_started' when no activity but assignments exist
+- Documented updated rule set in audit report
+
+**Validation**
+
+- [ ] Manual SQL check on v_org_dashboard
+
+**Notes / decisions**
+
+- Kept output contract stable; no new columns exposed in locals JSON
+
+---
+
+**Timestamp**
+
+- 2026-01-10T15:30:00Z
+
+**Goal**
+
+- Redefine org dashboard local status using learner-level progress states
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/audit/local-at-risk-audit.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260110153000_089_update_v_org_dashboard_learner_statuses.sql
+- app/org/dashboard/page.tsx
+- docs/audit/local-at-risk-audit.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Rebuilt v_org_dashboard to compute learner-level states and new local statuses
+- Added learner-level counts to locals JSON for dashboard display
+- Updated org dashboard UI to Spanish labels, new statuses, and secondary status details
+- Updated audit doc to reflect current status logic
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+- [ ] SQL spot check on v_org_dashboard with real org_admin context
+
+**Notes / decisions**
+
+- Local status is now derived from learner-level risk/completion instead of only local averages
+- 2026-01-10T22:26:46Z
+
+**Goal**
+
+- audit: course builder context created
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- docs/audit/course-builder-context.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added a unified technical + UX audit for the Course Builder/Editor
+- Documented routes, data contracts, DB model references, and Mermaid flows
+- Listed UX gaps, change surface, and open questions
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Audit-only change; no app or DB logic modified
+
+### 2026-01-12T13:56:29Z — quiz canonical naming alignment
+
+**Goal**
+
+- Align quiz contract to canonical fields (pass_score_pct, time_limit_min) across RPC, view, and UI
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112134500_090_update_rpc_quiz_submit_pass_score_pct.sql
+- supabase/migrations/20260112134600_091_update_v_quiz_state_canonical.sql
+- supabase/migrations/20260112134700_092_update_rpc_quiz_submit_pass_score_pct.sql
+- app/l/[localId]/quizzes/[quizId]/page.tsx
+- docs/screens/quiz-player.md
+- docs/audit/quiz-system-context.md
+- docs/ops/smoke/quiz-contract-smoke.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Updated rpc_quiz_submit to read pass_score_pct directly
+- Replaced v_quiz_state with canonical fields and legacy aliases
+- Migrated learner quiz player typing to canonical fields
+- Added smoke doc for contract verification
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Legacy aliases time_limit_minutes/pass_percent remain temporarily in v_quiz_state
+- 092 reapplies rpc_quiz_submit to align remote migration history with local files
+
+### 2026-01-12T14:34:10Z — quiz player pro (retry/shuffle/correct answers)
+
+**Goal**
+
+- Add retry policy, deterministic shuffle, and post-submit correct answers for quiz player
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112140000_093_add_quiz_max_attempts.sql
+- supabase/migrations/20260112140100_094_update_rpc_quiz_start_retry_policy.sql
+- supabase/migrations/20260112140200_095_update_v_quiz_state_player_pro.sql
+- supabase/migrations/20260112150000_096_quiz_attempt_questions_schema.sql
+- supabase/migrations/20260112150100_097_update_quiz_attempt_question_rpcs.sql
+- supabase/migrations/20260112150200_098_update_v_quiz_state_attempt_questions.sql
+- supabase/migrations/20260112150300_099_update_quiz_detail_views_num_questions.sql
+- supabase/migrations/20260112150400_100_quiz_attempt_questions_rls.sql
+- supabase/migrations/20260112150500_101_bulk_import_quiz_questions.sql
+- supabase/migrations/20260112160000_102_quiz_question_full_rpcs.sql
+- app/l/[localId]/quizzes/[quizId]/page.tsx
+- app/org/courses/[courseId]/quizzes/[quizId]/edit/page.tsx
+- app/superadmin/course-library/[templateId]/quizzes/[quizId]/edit/page.tsx
+- lib/quiz/bulkImport.ts
+- docs/screens/quiz-player.md
+- docs/screens/org-quiz-editor.md
+- docs/screens/superadmin-template-quiz-editor.md
+- docs/schema-guide.md
+- docs/integrity-rules.md
+- docs/rls-cheatsheet.md
+- docs/ops/smoke/quiz-v2-attempt-questions.md
+- docs/ops/smoke/quiz-bulk-import-smoke.md
+- docs/ops/smoke/quiz-player-pro-smoke.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added quizzes.max_attempts with default 3 and constraint
+- Updated rpc_quiz_start retry rules and max-attempts enforcement
+- Extended v_quiz_state with shuffle/correct flags and conditional is_correct exposure
+- Updated learner quiz player UI for retry, shuffle, and correct answers
+- Added smoke doc for quiz player pro behavior
+- Added quiz attempt question set (schema + RLS + RPCs) and canonical selection logic
+- Updated quiz views and editor metadata to support num_questions
+- Added bulk import parser + RPCs and editor UI for ONBO-QUIZ v1
+- Added draft question RPCs for single-save creation
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Legacy aliases time_limit_minutes/pass_percent remain in v_quiz_state per prior plan
+- 2026-01-10T22:35:35Z
+
+**Goal**
+
+- audit: course builder context updated (evidence + actionability)
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- docs/audit/course-builder-context.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added evidence anchors (imports, handlers, migrations) for builder screens
+- Documented delete-policy exception for templates
+- Normalized UX audit issues and added preview/assignment details
+- Verified doc gaps with repo listing
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Documentation-only update; no product or DB changes
+
+### 2026-01-12T13:43:21Z — quiz audit context generated
+
+**Goal**
+
+- audit: quiz system context generated
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- AGENTS.md
+
+**Files changed**
+
+- docs/audit/quiz-system-context.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Documented quiz routes, data contracts, RPC handlers, and view definitions
+- Anchored DB model, constraints, triggers, and RLS policies to migrations
+- Captured end-to-end flows and current gaps (pass_percent mismatch, null fields)
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Audit-only change; no app or DB logic modified

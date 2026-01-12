@@ -1,11 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import type { JSONContent } from '@tiptap/core';
+import { RichLessonEditor } from '@/components/editor/RichLessonEditor';
 
-type LessonType = 'text' | 'html' | 'richtext' | 'video' | 'file' | 'link';
+type LessonType =
+  | 'text'
+  | 'html'
+  | 'richtext'
+  | 'video'
+  | 'video_url'
+  | 'file'
+  | 'link';
 
 type LessonBlock = {
   block_id: string;
@@ -31,28 +40,32 @@ type LessonDetailRow = {
   updated_at: string;
 };
 
+const getRichtextDoc = (
+  data: Record<string, unknown> | null | undefined,
+): JSONContent | null => {
+  if (!data) return null;
+  const doc = data.doc;
+  if (doc && typeof doc === 'object') {
+    return doc as JSONContent;
+  }
+  if (typeof doc === 'string') {
+    try {
+      return JSON.parse(doc) as JSONContent;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 function typeLabel(type: LessonType) {
   if (type === 'text') return 'Texto';
   if (type === 'html') return 'HTML';
   if (type === 'richtext') return 'Rich text';
-  if (type === 'video') return 'Video';
+  if (type === 'video' || type === 'video_url') return 'Video';
   if (type === 'file') return 'Archivo';
   return 'Enlace';
 }
-
-const BLOCK_TYPES = [
-  { value: 'heading', label: 'Título', description: 'Sección o heading.' },
-  { value: 'text', label: 'Texto', description: 'Párrafo estándar.' },
-  { value: 'link', label: 'Link', description: 'URL + etiqueta.' },
-  { value: 'embed', label: 'Embed', description: 'URL embebida.' },
-  { value: 'divider', label: 'Divisor', description: 'Separador visual.' },
-] as const;
-
-type BlockDraft = {
-  text?: string;
-  url?: string;
-  label?: string;
-};
 
 export default function OrgLessonEditorPage() {
   const params = useParams();
@@ -115,6 +128,9 @@ export function OrgLessonEditorScreen({
   const viewName = detailView ?? 'v_org_lesson_detail';
   const metadataRpcName = metadataRpc ?? 'rpc_update_lesson_metadata';
   const blockRpc = blockRpcConfig ?? DEFAULT_BLOCK_RPC;
+  const isTemplate = basePath.startsWith('/superadmin/course-library');
+  const contextLabel = isTemplate ? 'Template global' : 'Org Admin';
+  const backLabel = isTemplate ? 'Volver al template' : 'Volver a estructura';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -122,50 +138,36 @@ export function OrgLessonEditorScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
-  const [blockError, setBlockError] = useState('');
-  const [blockSuccess, setBlockSuccess] = useState('');
+  const [richSaving, setRichSaving] = useState(false);
+  const [richtextBlockIdState, setRichtextBlockIdState] = useState<
+    string | null
+  >(null);
 
   const [title, setTitle] = useState('');
   const [isRequired, setIsRequired] = useState(true);
   const [estimatedMinutes, setEstimatedMinutes] = useState('');
-  const [blockDrafts, setBlockDrafts] = useState<Record<string, BlockDraft>>(
-    {},
+
+  const applyRowToForm = useCallback(
+    (data: LessonDetailRow) => {
+      setTitle(data.lesson_title ?? '');
+      setIsRequired(data.is_required ?? true);
+      setEstimatedMinutes(
+        data.estimated_minutes != null ? String(data.estimated_minutes) : '',
+      );
+      setSaveSuccess('');
+      setSaveError('');
+
+      if (!richtextBlockIdState) {
+        const richtext = (data.blocks ?? []).find(
+          (block) => block.block_type === 'richtext' && block.block_id,
+        );
+        if (richtext?.block_id) {
+          setRichtextBlockIdState(richtext.block_id);
+        }
+      }
+    },
+    [richtextBlockIdState],
   );
-
-  const applyRowToForm = (data: LessonDetailRow) => {
-    setTitle(data.lesson_title ?? '');
-    setIsRequired(data.is_required ?? true);
-    setEstimatedMinutes(
-      data.estimated_minutes != null ? String(data.estimated_minutes) : '',
-    );
-    setSaveSuccess('');
-    setSaveError('');
-    setBlockError('');
-    setBlockSuccess('');
-
-    const nextDrafts: Record<string, BlockDraft> = {};
-    (data.blocks ?? []).forEach((block) => {
-      if (block.block_type === 'heading' || block.block_type === 'text') {
-        nextDrafts[block.block_id] = {
-          text: String(block.data?.text ?? ''),
-        };
-        return;
-      }
-      if (block.block_type === 'link') {
-        nextDrafts[block.block_id] = {
-          url: String(block.data?.url ?? ''),
-          label: String(block.data?.label ?? ''),
-        };
-        return;
-      }
-      if (block.block_type === 'embed') {
-        nextDrafts[block.block_id] = {
-          url: String(block.data?.url ?? ''),
-        };
-      }
-    });
-    setBlockDrafts(nextDrafts);
-  };
 
   const refetchLesson = async () => {
     if (!lessonId) return;
@@ -229,13 +231,26 @@ export function OrgLessonEditorScreen({
     return () => {
       cancelled = true;
     };
-  }, [lessonId, viewName]);
+  }, [lessonId, viewName, applyRowToForm]);
 
   const blocks = useMemo(() => row?.blocks ?? [], [row]);
+  const richtextBlock = useMemo(
+    () => blocks.find((block) => block.block_type === 'richtext'),
+    [blocks],
+  );
+  const richtextBlockId = richtextBlock?.block_id ?? richtextBlockIdState;
+  const richtextDoc = useMemo(
+    () => getRichtextDoc(richtextBlock?.data),
+    [richtextBlock],
+  );
   const hasLegacyContent =
     !!row?.content_text || !!row?.content_html || !!row?.content_url;
+  const legacyNotice =
+    !richtextBlock && hasLegacyContent
+      ? 'Esta leccion usa contenido legacy. Al guardar, se convertira a formato nuevo.'
+      : '';
 
-  const canSave = !!row && !loading && !isSaving;
+  const canSave = !!row && !loading && !isSaving && !richSaving;
 
   const handleSaveMetadata = async () => {
     if (!row || !lessonId) return;
@@ -279,114 +294,36 @@ export function OrgLessonEditorScreen({
     setSaveSuccess('Cambios guardados.');
   };
 
-  const handleCreateBlock = async (blockType: string) => {
-    if (!lessonId || !canSave) return;
-    setIsSaving(true);
-    setBlockError('');
-    setBlockSuccess('');
+  const handleSaveRichtext = async (doc: JSONContent) => {
+    if (!lessonId || !row) return 'Leccion no encontrada.';
+    setRichSaving(true);
 
-    let data: Record<string, unknown> = {};
-    if (blockType === 'heading' || blockType === 'text') {
-      data = { text: '' };
-    } else if (blockType === 'link') {
-      data = { url: '', label: '' };
-    } else if (blockType === 'embed') {
-      data = { url: '' };
-    }
+    const payload = {
+      doc,
+      version: 1,
+    };
 
-    const { error: rpcError } = await supabase.rpc(blockRpc.createBlock, {
-      p_lesson_id: lessonId,
-      p_block_type: blockType,
-      p_data: data,
-    });
-
-    if (rpcError) {
-      setBlockError(rpcError.message);
-      setIsSaving(false);
-      return;
-    }
-
-    await refetchLesson();
-    setIsSaving(false);
-    setBlockSuccess('Bloque agregado.');
-  };
-
-  const handleUpdateBlock = async (blockId: string) => {
-    if (!canSave) return;
-    setIsSaving(true);
-    setBlockError('');
-    setBlockSuccess('');
-
-    const draft = blockDrafts[blockId] ?? {};
-    const { error: rpcError } = await supabase.rpc(blockRpc.updateBlock, {
-      p_block_id: blockId,
-      p_data: draft,
-    });
+    const { data: rpcData, error: rpcError } = richtextBlockId
+      ? await supabase.rpc(blockRpc.updateBlock, {
+          p_block_id: richtextBlockId,
+          p_data: payload,
+        })
+      : await supabase.rpc(blockRpc.createBlock, {
+          p_lesson_id: lessonId,
+          p_block_type: 'richtext',
+          p_data: payload,
+        });
 
     if (rpcError) {
-      setBlockError(rpcError.message);
-      setIsSaving(false);
-      return;
+      setRichSaving(false);
+      return rpcError.message;
     }
 
-    await refetchLesson();
-    setIsSaving(false);
-    setBlockSuccess('Bloque guardado.');
-  };
-
-  const handleArchiveBlock = async (blockId: string) => {
-    if (!canSave) return;
-    setIsSaving(true);
-    setBlockError('');
-    setBlockSuccess('');
-
-    const { error: rpcError } = await supabase.rpc(blockRpc.archiveBlock, {
-      p_block_id: blockId,
-    });
-
-    if (rpcError) {
-      setBlockError(rpcError.message);
-      setIsSaving(false);
-      return;
+    if (!richtextBlockId && rpcData) {
+      setRichtextBlockIdState(String(rpcData));
     }
-
-    await refetchLesson();
-    setIsSaving(false);
-    setBlockSuccess('Bloque archivado.');
-  };
-
-  const handleReorderBlocks = async (
-    blockId: string,
-    direction: 'up' | 'down',
-  ) => {
-    if (!canSave) return;
-    const index = blocks.findIndex((block) => block.block_id === blockId);
-    if (index === -1) return;
-    const nextIndex = direction === 'up' ? index - 1 : index + 1;
-    if (nextIndex < 0 || nextIndex >= blocks.length) return;
-
-    const order = blocks.map((block) => block.block_id);
-    const next = [...order];
-    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
-
-    setIsSaving(true);
-    setBlockError('');
-    setBlockSuccess('');
-
-    const { error: rpcError } = await supabase.rpc(blockRpc.reorderBlocks, {
-      p_lesson_id: lessonId,
-      p_block_ids: next,
-    });
-
-    if (rpcError) {
-      setBlockError(rpcError.message);
-      setIsSaving(false);
-      return;
-    }
-
-    await refetchLesson();
-    setIsSaving(false);
-    setBlockSuccess('Orden actualizado.');
+    setRichSaving(false);
+    return null;
   };
 
   const headerSubtitle = useMemo(() => {
@@ -407,8 +344,13 @@ export function OrgLessonEditorScreen({
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <div className="text-xs tracking-[0.2em] text-zinc-400 uppercase">
-              Org Admin
+            <div className="flex flex-wrap items-center gap-2 text-xs tracking-[0.2em] text-zinc-400 uppercase">
+              <span>{contextLabel}</span>
+              {isTemplate ? (
+                <span className="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-white">
+                  TEMPLATE GLOBAL
+                </span>
+              ) : null}
             </div>
             <h1 className="text-2xl font-semibold text-zinc-900">
               Editar leccion
@@ -424,13 +366,13 @@ export function OrgLessonEditorScreen({
             onClick={handleBack}
             type="button"
           >
-            Volver a estructura
+            {backLabel}
           </button>
         </div>
 
         <div className="flex items-center gap-3 text-sm text-zinc-500">
           <Link className="hover:text-zinc-900" href={basePath}>
-            Cursos
+            {isTemplate ? 'Templates' : 'Cursos'}
           </Link>
           <span>·</span>
           {courseId ? (
@@ -438,10 +380,10 @@ export function OrgLessonEditorScreen({
               className="hover:text-zinc-900"
               href={`${basePath}/${courseId}/outline`}
             >
-              Outline
+              {isTemplate ? 'Template' : 'Outline'}
             </Link>
           ) : (
-            <span>Outline</span>
+            <span>{isTemplate ? 'Template' : 'Outline'}</span>
           )}
           <span>·</span>
           <span>Editar leccion</span>
@@ -528,170 +470,12 @@ export function OrgLessonEditorScreen({
             </div>
 
             <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-zinc-900">Bloques</h2>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  {BLOCK_TYPES.map((block) => (
-                    <button
-                      key={block.value}
-                      className="rounded-full border border-zinc-200 px-3 py-1 font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-400"
-                      type="button"
-                      disabled={!canSave}
-                      onClick={() => void handleCreateBlock(block.value)}
-                    >
-                      + {block.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {blockSuccess && (
-                <p className="mt-3 text-xs text-emerald-600">{blockSuccess}</p>
-              )}
-              {blockError && (
-                <p className="mt-3 text-xs text-red-600">{blockError}</p>
-              )}
-
-              <div className="mt-4 space-y-4">
-                {blocks.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-                    Todavía no hay bloques en esta lección.
-                  </div>
-                )}
-
-                {blocks.map((block, index) => {
-                  const draft = blockDrafts[block.block_id] ?? {};
-                  return (
-                    <div
-                      key={block.block_id}
-                      className="rounded-xl border border-zinc-200 bg-white p-4"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-zinc-800">
-                          {block.block_type}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <button
-                            className="rounded-full border border-zinc-200 px-2 py-1 font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-400"
-                            type="button"
-                            disabled={!canSave || index === 0}
-                            onClick={() =>
-                              void handleReorderBlocks(block.block_id, 'up')
-                            }
-                          >
-                            ↑
-                          </button>
-                          <button
-                            className="rounded-full border border-zinc-200 px-2 py-1 font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-400"
-                            type="button"
-                            disabled={!canSave || index === blocks.length - 1}
-                            onClick={() =>
-                              void handleReorderBlocks(block.block_id, 'down')
-                            }
-                          >
-                            ↓
-                          </button>
-                          <button
-                            className="rounded-full border border-zinc-200 px-2 py-1 font-semibold text-zinc-600 hover:border-zinc-300 disabled:cursor-not-allowed disabled:text-zinc-400"
-                            type="button"
-                            disabled={!canSave}
-                            onClick={() =>
-                              void handleArchiveBlock(block.block_id)
-                            }
-                          >
-                            Archivar
-                          </button>
-                        </div>
-                      </div>
-
-                      {(block.block_type === 'heading' ||
-                        block.block_type === 'text') && (
-                        <textarea
-                          className="mt-3 min-h-[120px] w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900"
-                          value={draft.text ?? ''}
-                          onChange={(event) =>
-                            setBlockDrafts((prev) => ({
-                              ...prev,
-                              [block.block_id]: {
-                                ...prev[block.block_id],
-                                text: event.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="Escribí el contenido..."
-                        />
-                      )}
-
-                      {block.block_type === 'link' && (
-                        <div className="mt-3 space-y-3">
-                          <input
-                            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900"
-                            value={draft.label ?? ''}
-                            onChange={(event) =>
-                              setBlockDrafts((prev) => ({
-                                ...prev,
-                                [block.block_id]: {
-                                  ...prev[block.block_id],
-                                  label: event.target.value,
-                                },
-                              }))
-                            }
-                            placeholder="Etiqueta del link"
-                          />
-                          <input
-                            className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900"
-                            value={draft.url ?? ''}
-                            onChange={(event) =>
-                              setBlockDrafts((prev) => ({
-                                ...prev,
-                                [block.block_id]: {
-                                  ...prev[block.block_id],
-                                  url: event.target.value,
-                                },
-                              }))
-                            }
-                            placeholder="https://"
-                          />
-                        </div>
-                      )}
-
-                      {block.block_type === 'embed' && (
-                        <input
-                          className="mt-3 w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900"
-                          value={draft.url ?? ''}
-                          onChange={(event) =>
-                            setBlockDrafts((prev) => ({
-                              ...prev,
-                              [block.block_id]: {
-                                ...prev[block.block_id],
-                                url: event.target.value,
-                              },
-                            }))
-                          }
-                          placeholder="URL embebida"
-                        />
-                      )}
-
-                      {block.block_type === 'divider' && (
-                        <div className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-500">
-                          Divisor visual.
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
-                          type="button"
-                          disabled={!canSave}
-                          onClick={() => void handleUpdateBlock(block.block_id)}
-                        >
-                          Guardar bloque
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <RichLessonEditor
+                initialDoc={richtextDoc}
+                onSave={handleSaveRichtext}
+                disabled={!row || loading || richSaving}
+                legacyNotice={legacyNotice}
+              />
             </div>
 
             {hasLegacyContent && blocks.length === 0 && (

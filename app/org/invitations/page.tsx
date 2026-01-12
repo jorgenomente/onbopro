@@ -3,45 +3,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invokeEdge } from '@/lib/invokeEdge';
 import { supabase } from '@/lib/supabase/client';
-
-type InvitationRow = {
-  invitation_id: string;
-  email: string;
-  org_id: string;
-  local_id: string;
-  local_name: string;
-  role: 'aprendiz' | 'referente';
-  status: 'pending' | 'accepted' | 'expired';
-  sent_at: string | null;
-  expires_at: string | null;
-};
+import InviteMemberModal, {
+  InviteMemberResult,
+} from '@/components/org/invitations/InviteMemberModal';
+import InvitationsList from '@/components/org/invitations/InvitationsList';
+import { InvitationRow } from '@/components/org/invitations/InvitationCard';
 
 type FilterTab = 'all' | 'pending' | 'accepted' | 'expired';
-
-function formatDate(value: string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function statusLabel(status: InvitationRow['status']) {
-  if (status === 'accepted') return 'Aceptada';
-  if (status === 'expired') return 'Expirada';
-  return 'Pendiente';
-}
-
-function statusStyles(status: InvitationRow['status']) {
-  if (status === 'accepted') {
-    return 'bg-emerald-100 text-emerald-700';
-  }
-  if (status === 'expired') {
-    return 'bg-zinc-200 text-zinc-700';
-  }
-  return 'bg-amber-100 text-amber-700';
-}
 
 function formatEdgeError(
   message: string,
@@ -64,12 +32,17 @@ export default function OrgInvitationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<InvitationRow[]>([]);
+  const [orgLocals, setOrgLocals] = useState<
+    { local_id: string; local_name: string }[]
+  >([]);
+  const [orgId, setOrgId] = useState('');
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<FilterTab>('all');
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState('');
   const [actionToast, setActionToast] = useState('');
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +65,22 @@ export default function OrgInvitationsPage() {
         return;
       }
 
-      setRows((data ?? []) as InvitationRow[]);
+      const invitations = (data ?? []) as InvitationRow[];
+      setRows(invitations);
+      const localsMap = new Map<
+        string,
+        { local_id: string; local_name: string }
+      >();
+      invitations.forEach((row) => {
+        if (row.local_id && row.local_name) {
+          localsMap.set(row.local_id, {
+            local_id: row.local_id,
+            local_name: row.local_name,
+          });
+        }
+      });
+      setOrgLocals(Array.from(localsMap.values()));
+      setOrgId(invitations[0]?.org_id ?? '');
       setLoading(false);
     };
 
@@ -136,145 +124,130 @@ export default function OrgInvitationsPage() {
     setRefreshKey((value) => value + 1);
   };
 
+  const handleInviteSuccess = (result?: InviteMemberResult) => {
+    if (result === 'member_added') {
+      setActionToast('Miembro agregado.');
+    } else if (result === 'invited') {
+      setActionToast('Invitación enviada.');
+    }
+    setRefreshKey((value) => value + 1);
+  };
+
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs tracking-wide text-zinc-500 uppercase">
-          Organización
-        </p>
-        <h1 className="text-2xl font-semibold text-zinc-900">Invitaciones</h1>
-      </header>
+    <div className="min-h-screen bg-zinc-50 px-6 py-10">
+      <div className="mx-auto max-w-5xl">
+        <header className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs tracking-wide text-zinc-500 uppercase">
+              Org Admin
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+              Invitaciones
+            </h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Gestioná las invitaciones a tu organización y locales.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
+              type="button"
+              onClick={() => setInviteOpen(true)}
+            >
+              Invitar miembro
+            </button>
+            <div className="h-9 w-9 rounded-full border border-zinc-200 bg-white" />
+          </div>
+        </header>
 
-      <input
-        className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:outline-none"
-        placeholder="Buscar por email..."
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
+        <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <input
+                className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:outline-none lg:max-w-md"
+                placeholder="Buscar por email..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'pending', 'accepted', 'expired'] as const).map(
+                  (item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setTab(item)}
+                      className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        tab === item
+                          ? 'bg-zinc-900 text-white'
+                          : 'border border-zinc-200 bg-white text-zinc-600'
+                      }`}
+                    >
+                      {item === 'all'
+                        ? 'Todas'
+                        : item === 'pending'
+                          ? 'Pendientes'
+                          : item === 'accepted'
+                            ? 'Aceptadas'
+                            : 'Expiradas'}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
 
-      <div className="flex flex-wrap gap-2">
-        {(['all', 'pending', 'accepted', 'expired'] as const).map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setTab(item)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              tab === item
-                ? 'bg-zinc-900 text-white'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-            }`}
-          >
-            {item === 'all'
-              ? 'Todas'
-              : item === 'pending'
-                ? 'Pendientes'
-                : item === 'accepted'
-                  ? 'Aceptadas'
-                  : 'Expiradas'}
-          </button>
-        ))}
+            {actionError ? (
+              <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
+                {actionError}
+              </div>
+            ) : null}
+            {actionToast ? (
+              <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
+                {actionToast}
+              </div>
+            ) : null}
+
+            {loading && (
+              <div className="grid gap-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={`invite-skeleton-${index}`}
+                    className="h-20 animate-pulse rounded-2xl bg-zinc-50"
+                  />
+                ))}
+              </div>
+            )}
+
+            {!loading && error && (
+              <div className="rounded-2xl bg-zinc-50 p-5 text-sm text-red-600">
+                <p>Error: {error}</p>
+                <button
+                  className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                  type="button"
+                  onClick={() => setRefreshKey((value) => value + 1)}
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+
+            {!loading && !error && (
+              <InvitationsList
+                rows={filtered}
+                onResend={handleResend}
+                actioningId={actioningId}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
-      {actionError ? (
-        <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
-          {actionError}
-        </div>
-      ) : null}
-      {actionToast ? (
-        <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
-          {actionToast}
-        </div>
-      ) : null}
-
-      {loading && (
-        <div className="grid gap-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={`invite-skeleton-${index}`}
-              className="h-24 animate-pulse rounded-2xl bg-white shadow-sm"
-            />
-          ))}
-        </div>
-      )}
-
-      {!loading && error && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-red-600">Error: {error}</p>
-          <button
-            className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-            type="button"
-            onClick={() => setRefreshKey((value) => value + 1)}
-          >
-            Reintentar
-          </button>
-        </div>
-      )}
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <p className="text-sm text-zinc-600">
-            No hay invitaciones para mostrar.
-          </p>
-        </div>
-      )}
-
-      {!loading && !error && filtered.length > 0 && (
-        <div className="grid gap-4">
-          {filtered.map((row) => (
-            <div
-              key={row.invitation_id}
-              className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold text-zinc-900">
-                    {row.email}
-                  </h2>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles(
-                      row.status,
-                    )}`}
-                  >
-                    {statusLabel(row.status)}
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-500">
-                  {row.role === 'aprendiz' ? 'Aprendiz' : 'Referente'} ·{' '}
-                  {row.local_name}
-                </p>
-                <div className="flex flex-wrap gap-4 text-xs text-zinc-600">
-                  <span>Enviada: {formatDate(row.sent_at)}</span>
-                  <span>Expira: {formatDate(row.expires_at)}</span>
-                </div>
-              </div>
-              {row.status === 'pending' && (
-                <button
-                  className="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-300 disabled:opacity-60"
-                  type="button"
-                  disabled={actioningId === row.invitation_id}
-                  onClick={() => handleResend(row.invitation_id)}
-                >
-                  {actioningId === row.invitation_id
-                    ? 'Reenviando...'
-                    : 'Reenviar'}
-                </button>
-              )}
-              {row.status === 'expired' && (
-                <button
-                  className="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-300 disabled:opacity-60"
-                  type="button"
-                  disabled={actioningId === row.invitation_id}
-                  onClick={() => handleResend(row.invitation_id)}
-                >
-                  {actioningId === row.invitation_id
-                    ? 'Reenviando...'
-                    : 'Reenviar'}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <InviteMemberModal
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        orgId={orgId}
+        locals={orgLocals}
+        onSuccess={handleInviteSuccess}
+      />
     </div>
   );
 }

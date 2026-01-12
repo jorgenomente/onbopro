@@ -31,8 +31,6 @@ Inventario de rutas `/org/**` con estado (operativa / en construcción) y entry 
 
 ## Rutas en construcción (navegables, no operativas)
 
-- `/org/courses/new`
-  - Entry points: header nav (Crear curso con badge), CTA en `/org/courses` (botón y FAB con badge)
 - `/org/courses/[courseId]/edit`
   - Entry points: header de `/org/courses/[courseId]/outline` (link con badge)
 - `/org/courses/[courseId]/preview`
@@ -40,9 +38,8 @@ Inventario de rutas `/org/**` con estado (operativa / en construcción) y entry 
 
 ## Cambios de entry points en este bloque
 
-- Header org_admin ahora incluye CTA “Crear curso” con badge “En construcción”.
-- `/org/courses` ahora muestra badge “En construcción” en el CTA de Crear curso (empty state) y en el FAB.
-- `/org/courses/[courseId]/outline` ahora muestra badges “En construcción” en links a Preview/Edit.
+- Se removieron entry points hacia `/org/courses/new`.
+- `/org/courses/[courseId]/outline` mantiene links a Preview/Edit con badge.
 
 ## Rutas sin entry point (A validar)
 

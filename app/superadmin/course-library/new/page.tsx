@@ -53,9 +53,14 @@ export default function SuperadminCourseLibraryNewPage() {
             >
               ← Volver a librería
             </Link>
-            <h1 className="text-2xl font-semibold text-zinc-900">
-              Crear template global
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold text-zinc-900">
+                Crear template global
+              </h1>
+              <span className="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-white">
+                TEMPLATE GLOBAL
+              </span>
+            </div>
           </header>
 
           <section className="space-y-4 rounded-2xl bg-white p-6 shadow-sm">

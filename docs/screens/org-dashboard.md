@@ -26,6 +26,8 @@
   - local_name text
   - status text -- on_track | at_risk | inactive
   - learners_count int
+  - referentes_count int
+  - active_courses_count int
   - completion_rate_pct numeric null
   - risk_reason text null -- low_completion | inactivity | null
 

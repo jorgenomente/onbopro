@@ -23,8 +23,12 @@
 - unit_id uuid — unidad asociada (nullable) — single row
 - quiz_scope text — 'unit' | 'course' — single row
 - total_questions bigint — total de preguntas — single row
-- time_limit_minutes integer — null literal por ahora — single row
-- pass_percent integer — null literal por ahora — single row
+- time_limit_min integer — minutos limite del quiz (nullable) — single row
+- pass_score_pct integer — porcentaje aprobacion (0-100) — single row
+- shuffle_questions boolean — orden deterministico si true — single row
+- show_correct_answers boolean — mostrar correctas post-submit — single row
+- time_limit_minutes integer — alias legacy (transicion) — single row
+- pass_percent integer — alias legacy (transicion) — single row
 - attempt_id uuid — intento actual (nullable) — single row
 - attempt_no integer — numero de intento (nullable) — single row
 - attempt_status text — not_started | in_progress | submitted — single row
@@ -45,7 +49,9 @@
 
 - Metadata: quiz_title, quiz_type, quiz_scope, course_id, unit_id
 - Estado del intento: attempt_status
-- Preguntas y opciones: questions (ordenado por position)
+- Preguntas y opciones: questions representa el set del attempt (si existe), ordenado por position.
+- Si attempt_status = not_started, questions corresponde al banco completo.
+- shuffle_questions aplica al set del attempt (orden generado en RPC).
 - Respuestas del usuario: selected_option_id / answer_text dentro de questions
 - Resultado final: score, passed (solo si submitted)
 
@@ -68,11 +74,22 @@
   - rpc_quiz_submit(p_attempt_id) -> {score, passed}
 - UI debe derivar estado solo desde attempt_status y attempt_id.
 
+## Retry policy (UI)
+
+- Si attempt_status = submitted y passed = false, UI puede ofrecer “Reintentar”.
+- rpc_quiz_start rechaza nuevos intentos si ya aprobó o max_attempts alcanzado.
+
+## Correct answers (post-submit)
+
+- Si show_correct_answers = true y attempt_status = submitted:
+  - options incluyen is_correct (solo en ese estado).
+  - UI puede resaltar correctas/incorrectas sin filtrar en frontend.
+    \*\*\* End Patch"}}
+
 ## Missing / Gaps
 
-- time_limit_minutes y pass_percent son null literal.
 - No existe bandera de can_retry.
-- Fallback de passed: si pass_percent no existe en quizzes, se usa umbral 70.
+- Legacy aliases: time_limit_minutes y pass_percent se mantienen temporalmente.
 - No hay data de scoring detallado por pregunta.
 
 ## Example response (mock)
@@ -87,8 +104,10 @@
   "unit_id": "809b8e44-d6b1-4478-80b5-af4dbf53dd91",
   "quiz_scope": "unit",
   "total_questions": 2,
+  "time_limit_min": null,
+  "pass_score_pct": 80,
   "time_limit_minutes": null,
-  "pass_percent": null,
+  "pass_percent": 80,
   "attempt_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
   "attempt_no": 1,
   "attempt_status": "in_progress",

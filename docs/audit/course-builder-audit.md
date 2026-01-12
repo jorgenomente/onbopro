@@ -16,7 +16,7 @@
 - View: `v_org_courses`.
 - Writes: ninguno en esta pantalla.
 - Entry points: cards a `/org/courses/[courseId]/outline`.
-- CTAs: “Crear curso” (en construcción) → `/org/courses/new`.
+- CTAs: sin creación de curso (org_admin no crea).
 - Estados: loading / error / empty.
 
 ### /org/courses/[courseId]/outline
@@ -46,11 +46,6 @@
 - View: `v_org_quiz_detail`.
 - Writes: `rpc_update_quiz_metadata`, `rpc_create_quiz_question`, `rpc_update_quiz_question`, `rpc_archive_quiz_question`, `rpc_reorder_quiz_questions`, `rpc_create_quiz_choice`, `rpc_update_quiz_choice`, `rpc_set_quiz_correct_choice`, `rpc_reorder_quiz_choices`.
 - Validaciones client-side: título requerido, porcentaje 0..100, prompts requeridos.
-
-### /org/courses/new
-
-- Estado: en construcción (UnderConstruction).
-- Backend: no hay RPC/contrato de creación (A validar).
 
 ### /org/courses/[courseId]/edit
 
@@ -181,7 +176,7 @@
 ### Bloque 1 — Crear curso (v1)
 
 - Definir RPC `rpc_create_course` (course vacío con org_id, title, status=draft).
-- UI en `/org/courses/new` para crear.
+- No hay UI de creación para org_admin (ruta eliminada).
 - QA: curso aparece en `/org/courses` y outline vacío.
 
 ### Bloque 2 — Metadata general

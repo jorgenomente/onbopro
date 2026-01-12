@@ -336,9 +336,20 @@ Soporta límite de intentos y reporting correcto.
 
 ---
 
+### IR-17: Preguntas asignadas coherentes con el intento
+
+**Regla**
+`quiz_attempt_questions.question_id` debe pertenecer al mismo quiz del attempt.
+
+**Enforcement**
+
+* Trigger de integridad o policy que valide la relacion attempt→quiz→question
+
+---
+
 ## 6. Soft Delete (regla transversal)
 
-### IR-17: Nunca borrar datos de negocio
+### IR-18: Nunca borrar datos de negocio
 
 **Regla**
 Ninguna tabla core debe permitir DELETE.

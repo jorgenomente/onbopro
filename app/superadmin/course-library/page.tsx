@@ -59,6 +59,9 @@ export default function SuperadminCourseLibraryPage() {
               <h1 className="text-2xl font-semibold text-zinc-900">
                 Librería global de cursos
               </h1>
+              <div className="mt-2 inline-flex rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-white">
+                TEMPLATE GLOBAL
+              </div>
               <p className="mt-2 text-sm text-zinc-500">
                 Templates reutilizables para copiar a organizaciones.
               </p>

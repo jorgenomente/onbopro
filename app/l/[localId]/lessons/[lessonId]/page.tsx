@@ -7,6 +7,7 @@ import { Card } from '@/components/learner/Card';
 import { InlineNotice } from '@/components/learner/InlineNotice';
 import { LearnerShell } from '@/components/learner/LearnerShell';
 import { StateBlock } from '@/components/learner/StateBlock';
+import { LessonBlocksRenderer } from '@/components/learner/LessonBlocksRenderer';
 import { formatStatusLabel } from '@/lib/learner/formatters';
 
 type LessonRow = {
@@ -22,11 +23,38 @@ type LessonRow = {
   lesson_position: number;
   content_type: string;
   content: Record<string, unknown> | null;
+  blocks: unknown;
   is_completed: boolean;
   completed_at: string | null;
   can_mark_complete: boolean;
   prev_lesson_id: string | null;
   next_lesson_id: string | null;
+};
+
+type LessonBlock = {
+  block_id?: string;
+  block_type: string;
+  data?: Record<string, unknown>;
+  position?: number;
+};
+
+const normalizeBlocks = (raw: unknown): LessonBlock[] => {
+  if (Array.isArray(raw)) {
+    return raw as LessonBlock[];
+  }
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed as LessonBlock[];
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 };
 
 export default function LessonPlaceholderPage() {
@@ -145,6 +173,12 @@ export default function LessonPlaceholderPage() {
     );
   };
 
+  const blocks = useMemo(
+    () => normalizeBlocks(lesson?.blocks),
+    [lesson?.blocks],
+  );
+  const hasBlocks = blocks.length > 0;
+
   const handleBack = () => {
     if (lesson?.course_id) {
       router.push(`/l/${localId}/courses/${lesson.course_id}`);
@@ -259,7 +293,13 @@ export default function LessonPlaceholderPage() {
             </div>
           </Card>
 
-          <Card>{renderContent()}</Card>
+          <Card>
+            {hasBlocks ? (
+              <LessonBlocksRenderer blocks={blocks} />
+            ) : (
+              renderContent()
+            )}
+          </Card>
 
           {marking ? (
             <InlineNotice tone="info">Guardando cambios…</InlineNotice>

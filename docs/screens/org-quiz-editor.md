@@ -31,6 +31,7 @@
   pass_score_pct: numeric
   shuffle_questions: boolean
   show_correct_answers: boolean
+  num_questions: int | null
   questions: [
     {
       question_id: uuid
@@ -80,3 +81,41 @@ select *
 from public.v_org_quiz_detail
 where quiz_id = :quiz_id;
 ```
+
+## Write contracts (RPCs)
+
+- rpc_update_quiz_metadata(
+  p_quiz_id,
+  p_title,
+  p_description,
+  p_pass_score_pct,
+  p_shuffle_questions,
+  p_show_correct_answers,
+  p_num_questions
+  )
+
+- rpc_bulk_import_quiz_questions(p_quiz_id, p_items) -> {inserted_count, errors}
+- rpc_create_quiz_question_full(p_quiz_id, p_prompt, p_choices, p_correct_index) -> question_id
+
+## Importar preguntas (ONBO-QUIZ v1)
+
+Formato por bloques:
+
+```
+---
+Q: Pregunta
+A1: Opcion 1
+A2: Opcion 2
+A3: Opcion 3
+A4: Opcion 4
+CORRECT: 2
+EXPLAIN: (opcional)
+---
+```
+
+Reglas:
+
+- Requeridos: Q, A1..A4, CORRECT.
+- CORRECT debe ser 1..4.
+- Se respeta el orden de bloques en el import.
+- Importa solo preguntas válidas (las inválidas se reportan).

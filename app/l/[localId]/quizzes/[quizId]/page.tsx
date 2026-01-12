@@ -13,6 +13,7 @@ type QuizQuestionOption = {
   option_id: string;
   position: number;
   option_text: string;
+  is_correct?: boolean | null;
 };
 
 type QuizQuestion = {
@@ -33,8 +34,10 @@ type QuizStateRow = {
   unit_id: string | null;
   quiz_scope: 'unit' | 'course';
   total_questions: number;
-  time_limit_minutes: number | null;
-  pass_percent: number | null;
+  time_limit_min: number | null;
+  pass_score_pct: number | null;
+  shuffle_questions: boolean;
+  show_correct_answers: boolean;
   attempt_id: string | null;
   attempt_no: number | null;
   attempt_status: 'not_started' | 'in_progress' | 'submitted';
@@ -149,6 +152,8 @@ export default function QuizPlayerPage() {
   const canSubmit = quiz?.attempt_status === 'in_progress';
   const canAnswer =
     quiz?.attempt_status === 'in_progress' && Boolean(quiz?.attempt_id);
+  const canShowCorrect =
+    quiz?.attempt_status === 'submitted' && Boolean(quiz?.show_correct_answers);
 
   const handleStart = async () => {
     if (!localId || !quizId) return;
@@ -196,6 +201,22 @@ export default function QuizPlayerPage() {
       p_attempt_id: quiz.attempt_id,
     });
     setSubmitting(false);
+    if (rpcError) {
+      setActionError(rpcError.message);
+      return;
+    }
+    await fetchQuiz();
+  };
+
+  const handleRetry = async () => {
+    if (!localId || !quizId) return;
+    setActionError('');
+    setStarting(true);
+    const { error: rpcError } = await supabase.rpc('rpc_quiz_start', {
+      p_local_id: localId,
+      p_quiz_id: quizId,
+    });
+    setStarting(false);
     if (rpcError) {
       setActionError(rpcError.message);
       return;
@@ -305,30 +326,53 @@ export default function QuizPlayerPage() {
                   </h2>
 
                   <div className="mt-4 space-y-2">
-                    {(question.options ?? []).map((option) => (
-                      <label
-                        key={option.option_id}
-                        className="flex items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700"
-                      >
-                        <input
-                          type="radio"
-                          checked={
-                            question.selected_option_id === option.option_id
-                          }
-                          onChange={() =>
-                            handleAnswer(
-                              question.question_id,
-                              option.option_id,
-                              null,
-                            )
-                          }
-                          disabled={
-                            !canAnswer || answeringId === question.question_id
-                          }
-                        />
-                        <span>{option.option_text}</span>
-                      </label>
-                    ))}
+                    {(question.options ?? []).map((option) => {
+                      const isCorrect = option.is_correct === true;
+                      const isSelected =
+                        question.selected_option_id === option.option_id;
+                      const showCorrect = canShowCorrect && isCorrect;
+                      const showIncorrect =
+                        canShowCorrect && isSelected && !isCorrect;
+
+                      return (
+                        <label
+                          key={option.option_id}
+                          className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm text-zinc-700 ${
+                            showCorrect
+                              ? 'border-emerald-300 bg-emerald-50'
+                              : showIncorrect
+                                ? 'border-rose-300 bg-rose-50'
+                                : 'border-zinc-200'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            checked={isSelected}
+                            onChange={() =>
+                              handleAnswer(
+                                question.question_id,
+                                option.option_id,
+                                null,
+                              )
+                            }
+                            disabled={
+                              !canAnswer || answeringId === question.question_id
+                            }
+                          />
+                          <span className="flex-1">{option.option_text}</span>
+                          {showCorrect ? (
+                            <span className="rounded-full bg-emerald-200 px-2 py-1 text-[10px] font-semibold text-emerald-800">
+                              Correcta
+                            </span>
+                          ) : null}
+                          {showIncorrect ? (
+                            <span className="rounded-full bg-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-800">
+                              Incorrecta
+                            </span>
+                          ) : null}
+                        </label>
+                      );
+                    })}
                     {!question.options && (
                       <div className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-700">
                         <textarea
@@ -390,6 +434,16 @@ export default function QuizPlayerPage() {
                     onClick={handleSubmit}
                   >
                     {submitting ? 'Enviando…' : 'Enviar'}
+                  </button>
+                ) : null}
+                {quiz.attempt_status === 'submitted' && !quiz.passed ? (
+                  <button
+                    className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300 disabled:opacity-50"
+                    type="button"
+                    disabled={starting}
+                    onClick={handleRetry}
+                  >
+                    {starting ? 'Reintentando…' : 'Reintentar'}
                   </button>
                 ) : null}
               </div>

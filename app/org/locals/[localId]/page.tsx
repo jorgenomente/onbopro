@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import InviteMemberModal, {
+  InviteMemberResult,
+} from '@/components/org/invitations/InviteMemberModal';
+import InvitationsList from '@/components/org/invitations/InvitationsList';
+import { InvitationRow } from '@/components/org/invitations/InvitationCard';
+import { invokeEdge } from '@/lib/invokeEdge';
 import { supabase } from '@/lib/supabase/client';
 
 type LocalLearner = {
@@ -75,6 +81,15 @@ export default function OrgLocalDetailPage() {
   const [row, setRow] = useState<LocalDetailRow | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteToast, setInviteToast] = useState('');
+  const [inviteError, setInviteError] = useState('');
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [inviteFilter, setInviteFilter] = useState<
+    'all' | 'pending' | 'accepted' | 'expired'
+  >('all');
+  const [invitationRows, setInvitationRows] = useState<InvitationRow[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
 
   const fetchDetail = async () => {
     if (!localId) return;
@@ -133,6 +148,12 @@ export default function OrgLocalDetailPage() {
   }, [localId]);
 
   const learners = useMemo(() => row?.learners ?? [], [row]);
+  const filteredInvitations = useMemo(() => {
+    if (inviteFilter === 'all') return invitationRows;
+    return invitationRows.filter(
+      (invitation) => invitation.status === inviteFilter,
+    );
+  }, [inviteFilter, invitationRows]);
 
   const filteredLearners = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -149,6 +170,81 @@ export default function OrgLocalDetailPage() {
     row?.local_code ??
     (row?.local_id ? `ID: ${row.local_id.slice(0, 8)}` : 'ID: —');
 
+  const handleInviteSuccess = (result?: InviteMemberResult) => {
+    if (result === 'member_added') {
+      setInviteToast('Miembro agregado.');
+    } else if (result === 'invited') {
+      setInviteToast('Invitación enviada.');
+    }
+    setInviteError('');
+    void refreshInvitations();
+  };
+
+  const handleResend = async (invitationId: string) => {
+    setInviteError('');
+    setInviteToast('');
+    setResendingId(invitationId);
+
+    const { error: edgeError } = await invokeEdge('resend_invitation', {
+      invitation_id: invitationId,
+    });
+
+    setResendingId(null);
+
+    if (edgeError) {
+      setInviteError(edgeError.message ?? 'No se pudo reenviar.');
+      return;
+    }
+
+    setInviteToast('Invitación reenviada.');
+    void refreshInvitations();
+  };
+
+  const refreshInvitations = async () => {
+    if (!localId) return;
+    setInvitesLoading(true);
+    const { data, error: fetchError } = await supabase
+      .from('v_org_invitations')
+      .select('*')
+      .eq('local_id', localId)
+      .order('sent_at', { ascending: false });
+
+    if (fetchError) {
+      setInviteError(fetchError.message);
+      setInvitationRows([]);
+      setInvitesLoading(false);
+      return;
+    }
+
+    setInvitationRows((data ?? []) as InvitationRow[]);
+    setInvitesLoading(false);
+  };
+
+  useEffect(() => {
+    if (!localId) return;
+
+    const run = async () => {
+      setInvitesLoading(true);
+      const { data, error: fetchError } = await supabase
+        .from('v_org_invitations')
+        .select('*')
+        .eq('local_id', localId)
+        .order('sent_at', { ascending: false });
+
+      if (fetchError) {
+        setInviteError(fetchError.message);
+        setInvitationRows([]);
+        setInvitesLoading(false);
+        return;
+      }
+
+      setInvitationRows((data ?? []) as InvitationRow[]);
+      setInvitesLoading(false);
+    };
+
+    void run();
+  }, [localId]);
+
   return (
     <div className="min-h-screen bg-zinc-50 px-6 py-10">
       <div className="mx-auto max-w-5xl">
@@ -161,22 +257,39 @@ export default function OrgLocalDetailPage() {
             ← Back to Org Overview
           </button>
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-xs tracking-wide text-zinc-500 uppercase">
-              Local Overview
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
-              {row?.local_name ?? 'Local'}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-              <span>{localCode}</span>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs tracking-wide text-zinc-500 uppercase">
+                  Local Overview
+                </p>
+                <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {row?.local_name ?? 'Local'}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                  <span>{localCode}</span>
+                  {row && (
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${localStatusClass(
+                        row.local_status,
+                      )}`}
+                    >
+                      {localStatusLabel(row.local_status)}
+                    </span>
+                  )}
+                </div>
+              </div>
               {row && (
-                <span
-                  className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${localStatusClass(
-                    row.local_status,
-                  )}`}
+                <button
+                  className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
+                  type="button"
+                  onClick={() => {
+                    setInviteOpen(true);
+                    setInviteError('');
+                    setInviteToast('');
+                  }}
                 >
-                  {localStatusLabel(row.local_status)}
-                </span>
+                  Invitar nuevo miembro
+                </button>
               )}
             </div>
           </div>
@@ -354,9 +467,78 @@ export default function OrgLocalDetailPage() {
                 </Link>
               ))}
             </section>
+
+            <section className="mt-10 space-y-4">
+              <h2 className="text-lg font-semibold text-zinc-900">
+                Invitaciones
+              </h2>
+              {inviteError ? (
+                <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
+                  {inviteError}
+                </div>
+              ) : null}
+              {inviteToast ? (
+                <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
+                  {inviteToast}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'pending', 'accepted', 'expired'] as const).map(
+                  (item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setInviteFilter(item)}
+                      className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                        inviteFilter === item
+                          ? 'bg-zinc-900 text-white'
+                          : 'border border-zinc-200 bg-white text-zinc-600'
+                      }`}
+                    >
+                      {item === 'all'
+                        ? 'Todas'
+                        : item === 'pending'
+                          ? 'Pendientes'
+                          : item === 'accepted'
+                            ? 'Aceptadas'
+                            : 'Expiradas'}
+                    </button>
+                  ),
+                )}
+              </div>
+              {invitesLoading ? (
+                <div className="grid gap-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={`invite-skeleton-${index}`}
+                      className="h-20 animate-pulse rounded-2xl bg-zinc-50"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <InvitationsList
+                  rows={filteredInvitations}
+                  emptyLabel="Aún no hay invitaciones para este local."
+                  onResend={handleResend}
+                  actioningId={resendingId}
+                />
+              )}
+            </section>
           </>
         )}
       </div>
+
+      {row ? (
+        <InviteMemberModal
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          orgId={row.org_id}
+          defaultLocalId={row.local_id}
+          defaultLocalName={row.local_name}
+          lockLocal
+          onSuccess={handleInviteSuccess}
+        />
+      ) : null}
     </div>
   );
 }

@@ -16,9 +16,9 @@
 
 - **Crear curso**
   - Backend: no hay RPC/documentación para crear curso (A validar)
-  - UI actual: `/org/courses/new` (placeholder)
-  - Estado UI: placeholder
-  - Decisión v1: **ocultar** (sin backend/contrato)
+  - UI actual: ruta eliminada
+  - Estado UI: removida
+  - Decisión v1: **no exponer** (solo superadmin crea)
 
 - **Editar metadata general de curso**
   - Backend: no hay RPC/documentada para editar metadata general (A validar)
@@ -86,7 +86,6 @@ A validar:
 
 ### Rutas ocultas (v1)
 
-- `/org/courses/new`
 - `/org/courses/[courseId]/edit`
 - `/org/courses/[courseId]/preview`
 
@@ -102,7 +101,6 @@ A validar:
 
 ## 5. Placeholders detectados (decisión: ocultar)
 
-- `/org/courses/new` — placeholder, sin RPC/contrato de creación.
 - `/org/courses/[courseId]/edit` — placeholder, sin RPC/contrato.
 - `/org/courses/[courseId]/preview` — placeholder, sin vista/contrato.
 
@@ -116,7 +114,7 @@ Motivo común: UI no operativa y ausencia de contratos backend en docs.
    - Ruta: `/org/courses`
    - Fuente de datos: `v_org_courses`
    - Estados: sin cambios
-   - Criterio de aceptación: no hay navegación a `/org/courses/new`, `/edit`, `/preview`.
+   - Criterio de aceptación: no hay navegación a `/org/courses/[courseId]/edit` ni `/preview`.
 
 2. **Navegación org_admin alineada con Sitemap v1**
    - Ruta: header/nav global
@@ -140,18 +138,12 @@ Motivo común: UI no operativa y ausencia de contratos backend en docs.
 
 ### P2 (post v1)
 
-1. **Crear cursos**
-   - Ruta sugerida: `/org/courses/new`
-   - Fuente: RPC nueva (A definir)
-   - Estados: draft/published
-   - Criterio: curso creado y visible en `/org/courses`.
-
-2. **Editar metadata general de curso**
+1. **Editar metadata general de curso**
    - Ruta sugerida: `/org/courses/[courseId]/edit`
    - Fuente: RPC nueva (A definir)
    - Criterio: cambios persistidos y visibles en `v_org_courses`.
 
-3. **Preview de curso**
+2. **Preview de curso**
    - Ruta sugerida: `/org/courses/[courseId]/preview`
    - Fuente: view nueva (A definir)
    - Criterio: previsualiza contenido sin escribir progreso.

@@ -62,6 +62,8 @@ export function OrgCourseEditScreen({
   const router = useRouter();
   const viewName = metadataView ?? 'v_org_course_metadata';
   const rpcName = updateRpc ?? 'rpc_update_course_metadata';
+  const isTemplate = basePath.startsWith('/superadmin/course-library');
+  const backLabel = isTemplate ? 'Volver al template' : 'Volver al outline';
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -177,11 +179,18 @@ export function OrgCourseEditScreen({
             className="text-xs font-semibold text-zinc-500 hover:text-zinc-700"
             href={`${basePath}/${courseId}/outline`}
           >
-            ← Volver al outline
+            ← {backLabel}
           </Link>
-          <h1 className="text-2xl font-semibold text-zinc-900">
-            Editar curso (metadata)
-          </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold text-zinc-900">
+              Editar curso (metadata)
+            </h1>
+            {isTemplate ? (
+              <span className="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-white">
+                TEMPLATE GLOBAL
+              </span>
+            ) : null}
+          </div>
         </header>
 
         {loading && (

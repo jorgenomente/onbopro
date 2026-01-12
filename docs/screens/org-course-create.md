@@ -1,18 +1,19 @@
-# Screen Data Contract — Org Admin Course Create
+# Screen Data Contract — Org Admin Course Create (Deprecated)
 
 ## Route
 
-- /org/courses/new
+- /org/courses/new (removed)
 
 ## Role
 
-- org_admin (y superadmin)
+- superadmin only (org_admin no crea cursos)
 
-## Read Contract
+## Estado
 
-- None (form-only)
+- Ruta eliminada. Los cursos se crean desde Superadmin (Course Library) y se copian a la org.
+  Este documento queda como referencia histórica.
 
-## Write Contract
+## Write Contract (legacy)
 
 ### RPC: rpc_create_course
 
@@ -25,18 +26,18 @@
 
 - course_id (uuid)
 
-**Behavior**
+**Behavior (legacy)**
 
 - Crea curso en estado `draft` dentro de la org del org_admin.
 - Redirige a `/org/courses/[courseId]/outline`.
 
-## UX States
+## UX States (legacy)
 
 - loading
 - error
 - success (redirect)
 
-## No scope creep
+## No scope creep (legacy)
 
 - No creación desde templates en v1
 - Sin writes fuera de RPC

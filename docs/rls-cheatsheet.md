@@ -10,7 +10,7 @@ Objetivo: policies **simples, legibles y consistentes**, con helpers `SECURITY D
 1. **La DB es la fuente de verdad** de permisos.
 2. Evitar policies con joins complejos; preferir helpers `SECURITY DEFINER` + `org_id` redundante.
 3. Prohibir `DELETE` en tablas de negocio: usar `archived_at` / `status`.
-4. Progreso (`lesson_completions`, `quiz_attempts`, `quiz_answers`) es **own-only write**.
+4. Progreso (`lesson_completions`, `quiz_attempts`, `quiz_answers`, `quiz_attempt_questions`) es **own-only write**.
 5. Lectura de progreso:
    - aprendiz: OWN
    - referente: LOCAL
@@ -66,6 +66,7 @@ Tablas:
 - `lesson_completions`
 - `quiz_attempts`
 - `quiz_answers`
+- `quiz_attempt_questions`
 - `lesson_blocks` (planned)
 - `course_template_lesson_blocks` (planned)
 
@@ -73,21 +74,22 @@ Tablas:
 
 ## 3) Matriz de acceso (resumen)
 
-| Tabla              | Select                                                               | Insert                 | Update                        | Delete |
-| ------------------ | -------------------------------------------------------------------- | ---------------------- | ----------------------------- | ------ |
-| profiles           | self + superadmin                                                    | (service role)         | self (limitado)               | ❌     |
-| organizations      | member(org) + superadmin                                             | superadmin             | org_admin(org) + superadmin   | ❌     |
-| locals             | local_member + org_admin(org) + superadmin                           | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| org_memberships    | self + org_admin + superadmin                                        | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| local_memberships  | self + referente(local) + org_admin + superadmin                     | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| invitations        | org*admin + superadmin *(y opcional lookup por token via endpoint)\_ | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| courses/content    | assigned-local members + org_admin(org) + superadmin                 | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| local_courses      | local members + org_admin + superadmin                               | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| lesson_completions | own + referente(local) + org_admin + superadmin                      | own-only               | ❌ (o own-only)               | ❌     |
-| quiz_attempts      | own + referente(local) + org_admin + superadmin                      | own-only               | ❌ (o own-only before submit) | ❌     |
-| quiz_answers       | own + referente(local) + org_admin + superadmin                      | own-only               | ❌                            | ❌     |
-| lesson_blocks      | org*admin + superadmin *(player lee por view)\_ (planned)            | org_admin + superadmin | org_admin + superadmin        | ❌     |
-| template_blocks    | superadmin only (planned)                                            | superadmin only        | superadmin only               | ❌     |
+| Tabla                  | Select                                                               | Insert                 | Update                        | Delete |
+| ---------------------- | -------------------------------------------------------------------- | ---------------------- | ----------------------------- | ------ |
+| profiles               | self + superadmin                                                    | (service role)         | self (limitado)               | ❌     |
+| organizations          | member(org) + superadmin                                             | superadmin             | org_admin(org) + superadmin   | ❌     |
+| locals                 | local_member + org_admin(org) + superadmin                           | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| org_memberships        | self + org_admin + superadmin                                        | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| local_memberships      | self + referente(local) + org_admin + superadmin                     | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| invitations            | org*admin + superadmin *(y opcional lookup por token via endpoint)\_ | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| courses/content        | assigned-local members + org_admin(org) + superadmin                 | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| local_courses          | local members + org_admin + superadmin                               | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| lesson_completions     | own + referente(local) + org_admin + superadmin                      | own-only               | ❌ (o own-only)               | ❌     |
+| quiz_attempts          | own + referente(local) + org_admin + superadmin                      | own-only               | ❌ (o own-only before submit) | ❌     |
+| quiz_answers           | own + referente(local) + org_admin + superadmin                      | own-only               | ❌                            | ❌     |
+| quiz_attempt_questions | own + referente(local) + org_admin + superadmin                      | own-only               | ❌                            | ❌     |
+| lesson_blocks          | org*admin + superadmin *(player lee por view)\_ (planned)            | org_admin + superadmin | org_admin + superadmin        | ❌     |
+| template_blocks        | superadmin only (planned)                                            | superadmin only        | superadmin only               | ❌     |
 
 ---
 
@@ -330,7 +332,20 @@ Para mantener policies simples:
 **Insert (own-only)**
 
 - Validar que el attempt pertenece al usuario:
-  - policy/hook: existe `quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()`
+- policy/hook: existe `quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()`
+
+---
+
+### 7.4 quiz_attempt_questions
+
+**Select**
+
+- own + referente(local) + org_admin + superadmin
+
+**Insert**
+
+- own-only (attempt del usuario)
+- policy/hook: existe `quiz_attempts a where a.id = attempt_id and a.user_id = auth.uid()`
 - y que `org_id` coincide (si lo redundás en answers)
 
 **Update/Delete**

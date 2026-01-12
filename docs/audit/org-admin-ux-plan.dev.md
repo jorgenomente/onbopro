@@ -61,10 +61,6 @@
 - `/org/courses/[courseId]/quizzes/[quizId]/edit` — **Operativa**
   - Backend: `v_org_quiz_detail` + quiz editor RPCs.
 
-- `/org/courses/new` — **En construcción**
-  - UI: placeholder.
-  - Faltante: RPC/contrato de creación de curso.
-
 - `/org/courses/[courseId]/edit` — **En construcción**
   - UI: placeholder.
   - Faltante: RPC/contrato para metadata del curso.
@@ -79,15 +75,6 @@
   - Backend: `v_org_invitations` + Edge `resend_invitation`.
 
 ## 4. Detalle de pantallas en construcción
-
-### /org/courses/new
-
-- Qué funciona hoy: UI placeholder.
-- Qué NO funciona: creación real.
-- Falta:
-  - RPC `rpc_create_course` (A definir)
-  - Validaciones y estados (draft/published)
-  - Guards por org_id
 
 ### /org/courses/[courseId]/edit
 

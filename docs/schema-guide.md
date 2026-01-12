@@ -294,6 +294,14 @@ Reglas críticas:
 - `type='final'` → `unit_id IS NULL`
 - `unique(unit_id) WHERE type='unit'`
 - `unique(course_id) WHERE type='final'`
+- `num_questions` limita la cantidad de preguntas por intento (nullable).
+- `max_attempts` limita intentos por usuario (default 3).
+
+RPCs relevantes:
+
+- `rpc_update_quiz_metadata`
+- `rpc_bulk_import_quiz_questions`
+- `rpc_create_quiz_question_full`
 
 ---
 
@@ -403,6 +411,18 @@ Reglas:
 
 - `unique(attempt_id, question_id)`
 - Nunca se edita; solo se inserta.
+
+---
+
+### quiz_attempt_questions
+
+Set de preguntas asignado a cada intento.
+
+Reglas:
+
+- `unique(attempt_id, question_id)`
+- `unique(attempt_id, position)`
+- Todas las preguntas deben pertenecer al mismo quiz del intento.
 
 ---
 

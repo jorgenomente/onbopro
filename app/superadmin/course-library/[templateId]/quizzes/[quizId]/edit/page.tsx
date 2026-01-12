@@ -7,6 +7,7 @@ import { OrgQuizEditorScreen } from '@/app/org/courses/[courseId]/quizzes/[quizI
 const TEMPLATE_QUIZ_RPC = {
   updateMetadata: 'rpc_update_template_quiz_metadata',
   createQuestion: 'rpc_create_template_quiz_question',
+  createQuestionFull: 'rpc_create_template_quiz_question_full',
   updateQuestion: 'rpc_update_template_quiz_question',
   reorderQuestions: 'rpc_reorder_template_quiz_questions',
   archiveQuestion: 'rpc_archive_template_quiz_question',
@@ -14,6 +15,7 @@ const TEMPLATE_QUIZ_RPC = {
   updateChoice: 'rpc_update_template_quiz_choice',
   reorderChoices: 'rpc_reorder_template_quiz_choices',
   setCorrectChoice: 'rpc_set_template_quiz_correct_choice',
+  bulkImport: 'rpc_bulk_import_template_quiz_questions',
 };
 
 export default function SuperadminTemplateQuizEditorPage() {

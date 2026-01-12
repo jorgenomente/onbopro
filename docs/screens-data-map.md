@@ -36,7 +36,7 @@
 ## Org Admin — Invitations
 
 - /org/locals/[localId]/members/invite → public.v_org_local_context + Edge Function: provision_local_member
-- /org/invitations → public.v_org_invitations + Edge Function: resend_invitation
+- /org/invitations → public.v_org_invitations + Edge Function: resend_invitation + Edge Function: provision_local_member
 - /auth/accept-invitation → public.v_invitation_public + Edge Function: accept_invitation
 
 ## Superadmin (MVP)

@@ -15,7 +15,6 @@
 - `/org/courses/[courseId]/outline`
 - `/org/courses/[courseId]/lessons/[lessonId]/edit`
 - `/org/courses/[courseId]/quizzes/[quizId]/edit`
-- `/org/courses/new` (placeholder)
 - `/org/courses/[courseId]/edit` (placeholder)
 - `/org/courses/[courseId]/preview` (placeholder)
 
@@ -37,8 +36,6 @@
 ### /org/courses (operativa)
 
 - CTAs:
-  - “Crear curso” (empty state button) → `/org/courses/new` (placeholder + badge)
-  - FAB “+” → `/org/courses/new` (placeholder + badge)
   - Card click → `/org/courses/[courseId]/outline`
 - Data contract:
   - Read: `v_org_courses`
@@ -49,7 +46,7 @@
 - CTAs:
   - Preview → `/org/courses/[courseId]/preview` (placeholder + badge)
   - Editar curso → `/org/courses/[courseId]/edit` (placeholder + badge)
-  - Crear unidad/lesson (via prompts) → RPCs
+  - Crear unidad/leccion (via modales) → RPCs
   - CTA quiz unit/final → `/org/courses/[courseId]/quizzes/[quizId]/edit`
   - Lesson click → `/org/courses/[courseId]/lessons/[lessonId]/edit`
 - Data contract:
@@ -59,11 +56,12 @@
 ### /org/courses/[courseId]/lessons/[lessonId]/edit (operativa)
 
 - CTAs:
-  - Guardar → `rpc_update_lesson_content`
+  - Guardar metadata → `rpc_update_lesson_metadata`
+  - Crear/editar bloques → `rpc_*_lesson_block`
   - Back → `/org/courses/[courseId]/outline`
 - Data contract:
   - Read: `v_org_lesson_detail`
-  - Writes: `rpc_update_lesson_content`
+  - Writes: `rpc_update_lesson_metadata` + blocks RPCs
 
 ### /org/courses/[courseId]/quizzes/[quizId]/edit (operativa)
 
@@ -74,13 +72,6 @@
 - Data contract:
   - Read: `v_org_quiz_detail`
   - Writes: quiz editor RPCs
-
-### /org/courses/new (placeholder)
-
-- CTAs:
-  - None (UnderConstruction)
-- Data contract:
-  - No reads/writes
 
 ### /org/courses/[courseId]/edit (placeholder)
 
@@ -164,14 +155,14 @@
 
 ## Hallazgos y gaps
 
-- Placeholder routes (`/org/courses/new`, `/org/courses/[courseId]/edit`, `/org/courses/[courseId]/preview`) no hacen writes y usan UnderConstruction (OK).
+- Placeholder routes (`/org/courses/[courseId]/edit`, `/org/courses/[courseId]/preview`) no hacen writes y usan UnderConstruction (OK).
 - No hay “Crear curso” real: falta RPC de creación y pantalla operativa.
 - Metadata general de curso no editable (placeholder).
 - Preview no implementado (placeholder).
 
 ## Fixes sugeridos (sin implementar)
 
-- Bloque 1: RPC `rpc_create_course` + UI `/org/courses/new`.
+- Bloque 1: creación de curso es superadmin-only (sin ruta org_admin).
 - Bloque 2: RPC `rpc_update_course_metadata` + UI `/org/courses/[courseId]/edit`.
 - Bloque 3: View `v_org_course_preview` + UI `/org/courses/[courseId]/preview`.
 

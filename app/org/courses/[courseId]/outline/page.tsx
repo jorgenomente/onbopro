@@ -5,7 +5,14 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
-type LessonType = 'text' | 'html' | 'richtext' | 'video' | 'file' | 'link';
+type LessonType =
+  | 'text'
+  | 'html'
+  | 'richtext'
+  | 'video'
+  | 'video_url'
+  | 'file'
+  | 'link';
 
 type LessonRow = {
   lesson_id: string;
@@ -31,6 +38,13 @@ type UnitRow = {
   unit_quiz: QuizSummary | null;
 };
 
+type OrganizationOption = {
+  org_id: string;
+  name: string;
+  status: 'active' | 'archived';
+  admin_email: string | null;
+};
+
 type CourseOutlineRow = {
   org_id: string;
   course_id: string;
@@ -38,6 +52,7 @@ type CourseOutlineRow = {
   course_status: 'draft' | 'published' | 'archived';
   units: UnitRow[];
   final_quiz: QuizSummary | null;
+  organizations?: OrganizationOption[];
 };
 
 function statusLabel(status: CourseOutlineRow['course_status']) {
@@ -53,11 +68,20 @@ function statusClass(status: CourseOutlineRow['course_status']) {
 }
 
 function lessonTypeIcon(type: LessonType) {
-  if (type === 'video') return '🎬';
+  if (type === 'video' || type === 'video_url') return '🎬';
   if (type === 'file') return '📄';
   if (type === 'link') return '🔗';
   if (type === 'html' || type === 'richtext') return '🧩';
   return '📝';
+}
+
+function lessonTypeLabel(type: LessonType) {
+  if (type === 'text') return 'Texto';
+  if (type === 'html') return 'HTML';
+  if (type === 'richtext') return 'Rich text';
+  if (type === 'video' || type === 'video_url') return 'Video';
+  if (type === 'file') return 'Archivo';
+  return 'Enlace';
 }
 
 export default function OrgCourseOutlinePage() {
@@ -85,7 +109,7 @@ type CourseOutlineScreenProps = {
   backHref?: string;
   outlineView?: string;
   rpcConfig?: OutlineRpcConfig;
-  extraActions?: ReactNode;
+  extraActions?: ReactNode | ((row: CourseOutlineRow | null) => ReactNode);
   showPreview?: boolean;
 };
 
@@ -98,6 +122,7 @@ type OutlineRpcConfig = {
   createFinalQuiz: string;
   courseParamKey?: 'p_course_id' | 'p_template_id';
   defaultLessonType?: LessonType;
+  allowedLessonTypes?: readonly LessonType[];
 };
 
 const DEFAULT_OUTLINE_RPC: OutlineRpcConfig = {
@@ -109,6 +134,7 @@ const DEFAULT_OUTLINE_RPC: OutlineRpcConfig = {
   createFinalQuiz: 'rpc_create_final_quiz',
   courseParamKey: 'p_course_id',
   defaultLessonType: 'text',
+  allowedLessonTypes: ['text', 'video_url', 'file', 'link'],
 };
 
 export function OrgCourseOutlineScreen({
@@ -131,10 +157,17 @@ export function OrgCourseOutlineScreen({
     null,
   );
   const [lessonTitle, setLessonTitle] = useState('');
+  const [lessonType, setLessonType] = useState<LessonType>('text');
   const [lessonModalError, setLessonModalError] = useState('');
+  const [unitModalOpen, setUnitModalOpen] = useState(false);
+  const [unitTitle, setUnitTitle] = useState('');
+  const [unitModalError, setUnitModalError] = useState('');
   const viewName = outlineView ?? 'v_org_course_outline';
   const rpcNames = rpcConfig ?? DEFAULT_OUTLINE_RPC;
   const courseParamKey = rpcNames.courseParamKey ?? 'p_course_id';
+  const allowedLessonTypes =
+    rpcNames.allowedLessonTypes ??
+    (rpcNames.defaultLessonType ? [rpcNames.defaultLessonType] : ['text']);
   const buildCourseArgs = (value: string) =>
     ({ [courseParamKey]: value }) as Record<string, string>;
 
@@ -198,26 +231,42 @@ export function OrgCourseOutlineScreen({
   const canSave = !loading && !isSaving && !!row;
   const courseBase = `${basePath}/${courseId}`;
   const backLink = backHref ?? basePath;
+  const isTemplate = basePath.startsWith('/superadmin/course-library');
+  const backLabel = isTemplate ? 'Templates' : 'Cursos';
+  const resolvedExtraActions =
+    typeof extraActions === 'function' ? extraActions(row) : extraActions;
+
+  const openUnitModal = () => {
+    if (!canSave) return;
+    setUnitTitle('');
+    setUnitModalError('');
+    setUnitModalOpen(true);
+  };
 
   const handleCreateUnit = async () => {
     if (!courseId || !canSave) return;
-    const title = window.prompt('Titulo de la unidad');
-    if (!title?.trim()) return;
+    const trimmedTitle = unitTitle.trim();
+    if (!trimmedTitle) {
+      setUnitModalError('Ingresá un título para la unidad.');
+      return;
+    }
     setIsSaving(true);
     setActionError(null);
+    setUnitModalError('');
 
     const { error: rpcError } = await supabase.rpc(rpcNames.createUnit, {
       ...buildCourseArgs(courseId),
-      p_title: title.trim(),
+      p_title: trimmedTitle,
     });
 
     if (rpcError) {
-      setActionError(rpcError.message);
+      setUnitModalError(rpcError.message);
       setIsSaving(false);
       return;
     }
 
     await refetchOutline();
+    setUnitModalOpen(false);
     setIsSaving(false);
   };
 
@@ -245,6 +294,9 @@ export function OrgCourseOutlineScreen({
     if (!canSave) return;
     setLessonModalUnitId(unitId);
     setLessonTitle('');
+    setLessonType(
+      rpcNames.defaultLessonType ?? allowedLessonTypes[0] ?? 'text',
+    );
     setLessonModalError('');
     setLessonModalOpen(true);
   };
@@ -261,16 +313,26 @@ export function OrgCourseOutlineScreen({
     setActionError(null);
     setLessonModalError('');
 
-    const { error: rpcError } = await supabase.rpc(rpcNames.createLesson, {
-      p_unit_id: lessonModalUnitId,
-      p_title: trimmedTitle,
-      p_lesson_type: rpcNames.defaultLessonType ?? 'text',
-      p_is_required: true,
-    });
+    const { data, error: rpcError } = await supabase.rpc(
+      rpcNames.createLesson,
+      {
+        p_unit_id: lessonModalUnitId,
+        p_title: trimmedTitle,
+        p_lesson_type: lessonType,
+        p_is_required: true,
+      },
+    );
 
     if (rpcError) {
       setLessonModalError(rpcError.message);
       setIsSaving(false);
+      return;
+    }
+
+    if (data) {
+      setLessonModalOpen(false);
+      setIsSaving(false);
+      router.push(`${courseBase}/lessons/${data}/edit`);
       return;
     }
 
@@ -360,7 +422,7 @@ export function OrgCourseOutlineScreen({
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-zinc-500">
             <Link href={backLink} className="font-semibold text-zinc-700">
-              Cursos
+              {backLabel}
             </Link>
             <span>/</span>
             <span>{row?.course_title ?? 'Outline'}</span>
@@ -369,9 +431,14 @@ export function OrgCourseOutlineScreen({
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                  Estructura del curso
-                </p>
+                <div className="flex flex-wrap items-center gap-2 text-xs tracking-wide text-zinc-500 uppercase">
+                  <span>Estructura del curso</span>
+                  {isTemplate ? (
+                    <span className="rounded-full bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-white">
+                      TEMPLATE GLOBAL
+                    </span>
+                  ) : null}
+                </div>
                 <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
                   {row?.course_title ?? 'Curso'}
                 </h1>
@@ -400,7 +467,7 @@ export function OrgCourseOutlineScreen({
                 >
                   Editar curso
                 </Link>
-                {extraActions}
+                {resolvedExtraActions}
               </div>
             </div>
           </div>
@@ -456,7 +523,7 @@ export function OrgCourseOutlineScreen({
                   className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400"
                   type="button"
                   disabled={!canSave}
-                  onClick={handleCreateUnit}
+                  onClick={openUnitModal}
                 >
                   + Agregar unidad
                 </button>
@@ -709,6 +776,67 @@ export function OrgCourseOutlineScreen({
         )}
       </div>
 
+      {unitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold tracking-wide text-zinc-400 uppercase">
+                  Nueva unidad
+                </p>
+                <h2 className="mt-2 text-lg font-semibold text-zinc-900">
+                  Crear unidad
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                onClick={() => setUnitModalOpen(false)}
+                disabled={isSaving}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <label className="text-sm font-medium text-zinc-700">
+                Título
+              </label>
+              <input
+                className="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400"
+                type="text"
+                placeholder="Ej: Introducción"
+                value={unitTitle}
+                onChange={(event) => setUnitTitle(event.target.value)}
+              />
+            </div>
+
+            {unitModalError && (
+              <p className="mt-4 text-sm text-red-600">{unitModalError}</p>
+            )}
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-600 hover:border-zinc-300"
+                onClick={() => setUnitModalOpen(false)}
+                disabled={isSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={() => void handleCreateUnit()}
+                disabled={isSaving || !unitTitle.trim()}
+              >
+                {isSaving ? 'Creando…' : 'Crear unidad'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {lessonModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg">
@@ -742,6 +870,24 @@ export function OrgCourseOutlineScreen({
                 value={lessonTitle}
                 onChange={(event) => setLessonTitle(event.target.value)}
               />
+            </div>
+            <div className="mt-4 space-y-2">
+              <label className="text-sm font-medium text-zinc-700">
+                Tipo de lección
+              </label>
+              <select
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-400"
+                value={lessonType}
+                onChange={(event) =>
+                  setLessonType(event.target.value as LessonType)
+                }
+              >
+                {allowedLessonTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {lessonTypeLabel(type)}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <p className="mt-5 text-xs text-zinc-500">

@@ -8,10 +8,16 @@ type OrgLocal = {
   local_id: string;
   local_code: string;
   local_name: string;
-  status: 'on_track' | 'at_risk' | 'inactive';
+  status: 'at_risk' | 'not_started' | 'in_progress' | 'completed' | 'inactive';
   learners_count: number;
+  referentes_count: number;
+  active_courses_count: number;
   completion_rate_pct: number | null;
-  risk_reason: 'low_completion' | 'inactivity' | null;
+  risk_reason: 'stalled_learners' | 'no_activity_yet' | null;
+  risk_learners_count: number;
+  in_progress_learners_count: number;
+  completed_learners_count: number;
+  not_started_learners_count: number;
 };
 
 type OrgDashboardRow = {
@@ -24,23 +30,59 @@ type OrgDashboardRow = {
   locals: OrgLocal[];
 };
 
-type FilterKey = 'all' | 'on_track' | 'at_risk' | 'inactive';
+type FilterKey =
+  | 'all'
+  | 'at_risk'
+  | 'not_started'
+  | 'in_progress'
+  | 'completed'
+  | 'inactive';
 
 function formatPercent(value: number | null) {
   if (value == null) return '—';
   return `${Math.round(value)}%`;
 }
 
+function riskReasonLabel(value: OrgLocal['risk_reason'] | null) {
+  if (!value) return null;
+  if (value === 'stalled_learners') return 'Usuarios con actividad estancada';
+  if (value === 'no_activity_yet') return 'Aún sin actividad';
+  return 'Revisar actividad';
+}
+
 function statusLabel(status: OrgLocal['status']) {
-  if (status === 'at_risk') return 'At Risk';
-  if (status === 'inactive') return 'Inactive';
-  return 'On Track';
+  if (status === 'at_risk') return 'Usuarios en riesgo';
+  if (status === 'not_started') return 'Sin actividad';
+  if (status === 'completed') return 'Capacitaciones completadas';
+  if (status === 'inactive') return 'Inactivo';
+  return 'En curso';
 }
 
 function statusClass(status: OrgLocal['status']) {
   if (status === 'at_risk') return 'bg-red-100 text-red-700';
+  if (status === 'not_started') return 'bg-amber-100 text-amber-700';
+  if (status === 'completed') return 'bg-emerald-100 text-emerald-700';
   if (status === 'inactive') return 'bg-zinc-200 text-zinc-700';
-  return 'bg-emerald-100 text-emerald-700';
+  return 'bg-sky-100 text-sky-700';
+}
+
+function statusDetail(local: OrgLocal) {
+  if (local.status === 'at_risk') {
+    const count = local.risk_learners_count ?? 0;
+    return `${count} usuarios en riesgo`;
+  }
+  if (local.status === 'in_progress') {
+    const inProgress = local.in_progress_learners_count ?? 0;
+    const completed = local.completed_learners_count ?? 0;
+    return `${inProgress} en curso · ${completed} capacitados`;
+  }
+  if (local.status === 'completed') {
+    return 'Todos capacitados';
+  }
+  if (local.status === 'not_started') {
+    return 'Aún no iniciaron';
+  }
+  return null;
 }
 
 export default function OrgDashboardPage() {
@@ -158,7 +200,7 @@ export default function OrgDashboardPage() {
             <section className="mt-8 grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl bg-white p-5 shadow-sm">
                 <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                  Total Locals
+                  Total locales
                 </p>
                 <p className="mt-3 text-3xl font-semibold text-zinc-900">
                   {row.total_locals}
@@ -166,7 +208,7 @@ export default function OrgDashboardPage() {
               </div>
               <div className="rounded-2xl bg-white p-5 shadow-sm">
                 <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                  Avg Engagement
+                  Promedio de avance
                 </p>
                 <p className="mt-3 text-3xl font-semibold text-zinc-900">
                   {formatPercent(row.avg_engagement_pct)}
@@ -174,7 +216,7 @@ export default function OrgDashboardPage() {
               </div>
               <div className="rounded-2xl bg-white p-5 shadow-sm">
                 <p className="text-xs tracking-wide text-zinc-500 uppercase">
-                  At Risk
+                  Usuarios en riesgo
                 </p>
                 <p className="mt-3 text-3xl font-semibold text-zinc-900">
                   {row.locals_at_risk}
@@ -185,17 +227,19 @@ export default function OrgDashboardPage() {
             <div className="mt-8 space-y-4">
               <input
                 className="w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:outline-none"
-                placeholder="Search locals..."
+                placeholder="Buscar locales..."
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
 
               <div className="flex flex-wrap gap-2">
                 {[
-                  { key: 'all', label: 'All Status' },
-                  { key: 'on_track', label: 'On Track' },
-                  { key: 'at_risk', label: 'At Risk' },
-                  { key: 'inactive', label: 'Inactive' },
+                  { key: 'all', label: 'Todos' },
+                  { key: 'at_risk', label: 'Usuarios en riesgo' },
+                  { key: 'not_started', label: 'Sin actividad' },
+                  { key: 'in_progress', label: 'En curso' },
+                  { key: 'completed', label: 'Capacitaciones completadas' },
+                  { key: 'inactive', label: 'Inactivo' },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -213,65 +257,109 @@ export default function OrgDashboardPage() {
               </div>
             </div>
 
-            <section className="mt-8 space-y-4">
-              <h2 className="text-lg font-semibold text-zinc-900">
-                Locals Performance
-              </h2>
+            <section className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-lg font-semibold text-zinc-900">Locales</h2>
+                <p className="text-sm text-zinc-500">
+                  Administrá miembros, cursos y progreso por sucursal.
+                </p>
+              </div>
               {filteredLocals.length === 0 && (
-                <div className="rounded-2xl bg-white p-4 text-sm text-zinc-600 shadow-sm">
+                <div className="mt-4 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-600">
                   No locals match the current filters.
                 </div>
               )}
-              {filteredLocals.map((local) => (
-                <button
-                  key={local.local_id}
-                  type="button"
-                  onClick={() => router.push(`/org/locals/${local.local_id}`)}
-                  className="w-full rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">
-                        {local.local_code.slice(0, 3).toUpperCase()}
+              <div className="mt-6 grid gap-4">
+                {filteredLocals.map((local) => (
+                  <div
+                    key={local.local_id}
+                    className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white">
+                          {local.local_code.slice(0, 3).toUpperCase()}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-zinc-900">
+                            {local.local_name}
+                          </p>
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {local.local_code}
+                          </p>
+                          {statusDetail(local) ? (
+                            <p className="text-xs text-zinc-500">
+                              {statusDetail(local)}
+                            </p>
+                          ) : null}
+                          {local.status === 'at_risk' && local.risk_reason ? (
+                            <p className="text-xs text-zinc-500">
+                              Motivo: {riskReasonLabel(local.risk_reason)}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-900">
-                          {local.local_name}
-                        </p>
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {local.local_code}
-                        </p>
+                      <span
+                        className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
+                          local.status,
+                        )}`}
+                      >
+                        {statusLabel(local.status)}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-600">
+                      <span className="rounded-full border border-zinc-200 px-3 py-1">
+                        Learners: {local.learners_count ?? 0}
+                      </span>
+                      <span className="rounded-full border border-zinc-200 px-3 py-1">
+                        Referentes: {local.referentes_count ?? 0}
+                      </span>
+                      <span className="rounded-full border border-zinc-200 px-3 py-1">
+                        Cursos activos: {local.active_courses_count ?? 0}
+                      </span>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-xs text-zinc-500">
+                        <span>Completion</span>
+                        <span>{formatPercent(local.completion_rate_pct)}</span>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-zinc-100">
+                        <div
+                          className="h-2 rounded-full bg-zinc-900"
+                          style={{
+                            width: `${Math.round(
+                              local.completion_rate_pct ?? 0,
+                            )}%`,
+                          }}
+                        />
                       </div>
                     </div>
-                    <span
-                      className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
-                        local.status,
-                      )}`}
-                    >
-                      {statusLabel(local.status)}
-                    </span>
-                  </div>
 
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-zinc-500">
-                      <span>Completion</span>
-                      <span>{formatPercent(local.completion_rate_pct)}</span>
-                    </div>
-                    <div className="mt-2 h-2 w-full rounded-full bg-zinc-100">
-                      <div
-                        className="h-2 rounded-full bg-zinc-900"
-                        style={{
-                          width: `${Math.round(local.completion_rate_pct ?? 0)}%`,
-                        }}
-                      />
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                        type="button"
+                        onClick={() =>
+                          router.push(`/org/locals/${local.local_id}`)
+                        }
+                      >
+                        Ver local
+                      </button>
+                      <button
+                        className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
+                        type="button"
+                        onClick={() =>
+                          router.push(`/org/locals/${local.local_id}/courses`)
+                        }
+                      >
+                        Cursos
+                      </button>
                     </div>
                   </div>
-
-                  <div className="mt-4 text-xs text-zinc-500">
-                    Learners: {local.learners_count ?? '—'}
-                  </div>
-                </button>
-              ))}
+                ))}
+              </div>
             </section>
           </>
         )}

@@ -31,6 +31,7 @@ const HIDDEN_PATHS = new Set([
   '/select-local',
   '/forgot-password',
   '/set-password',
+  '/no-access',
 ]);
 
 function isAuthRoute(pathname: string) {
@@ -60,7 +61,7 @@ export default function Header({ organizationName, localName }: HeaderProps) {
   useEffect(() => {
     let cancelled = false;
 
-    const run = async () => {
+    const loadUser = async () => {
       const { data, error } = await supabase.auth.getUser();
       if (cancelled) return;
       if (error || !data.user) {
@@ -68,6 +69,7 @@ export default function Header({ organizationName, localName }: HeaderProps) {
         setUserId(null);
         setProfileName('');
         setProfileRequired(false);
+        setContext(null);
         return;
       }
 
@@ -99,12 +101,30 @@ export default function Header({ organizationName, localName }: HeaderProps) {
       setContext(contextData ?? null);
     };
 
-    void run();
+    void loadUser();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (cancelled) return;
+        if (!session) {
+          setUser({ email: null, orgName: null });
+          setUserId(null);
+          setProfileName('');
+          setProfileRequired(false);
+          setContext(null);
+          router.refresh();
+          return;
+        }
+        await loadUser();
+        router.refresh();
+      },
+    );
 
     return () => {
       cancelled = true;
+      subscription?.subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   const contextLabel = useMemo(() => {
     const orgLabel = organizationName ?? user.orgName ?? 'Organización —';
@@ -135,7 +155,8 @@ export default function Header({ organizationName, localName }: HeaderProps) {
     setSigningOut(true);
     try {
       await logout();
-      router.push('/login');
+      router.replace('/login');
+      router.refresh();
     } catch (error) {
       console.error('Logout failed', error);
       setSigningOut(false);
@@ -240,9 +261,6 @@ export default function Header({ organizationName, localName }: HeaderProps) {
                 </Link>
                 <Link className="hover:text-zinc-900" href="/org/invitations">
                   Invitaciones
-                </Link>
-                <Link className="hover:text-zinc-900" href="/org/courses/new">
-                  Crear curso
                 </Link>
               </nav>
             </div>

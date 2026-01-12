@@ -301,15 +301,17 @@ function AcceptInvitationInner() {
 
         {!loginRequired && (
           <div className="space-y-4">
-            <input
-              className="sr-only"
-              type="email"
-              value={emailFromInvitation}
-              readOnly
-              autoComplete="username"
-              aria-hidden="true"
-              tabIndex={-1}
-            />
+            <div>
+              <label className="text-sm font-medium text-zinc-700">Email</label>
+              <input
+                className="mt-2 w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 outline-none"
+                type="email"
+                name="email"
+                value={emailFromInvitation}
+                readOnly
+                autoComplete="email"
+              />
+            </div>
             <div>
               <label className="text-sm font-medium text-zinc-700">
                 Nombre y apellido
@@ -320,6 +322,7 @@ function AcceptInvitationInner() {
                 placeholder="Ej: Juan Pérez"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
+                autoComplete="name"
                 required={existingFullName.trim().length === 0}
               />
             </div>

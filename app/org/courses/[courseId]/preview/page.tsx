@@ -134,6 +134,42 @@ export function OrgCoursePreviewScreen({
           </h1>
         </header>
 
+        <div className="sticky top-0 z-10 rounded-2xl border border-blue-100 bg-blue-50/95 p-4 text-sm text-blue-900 backdrop-blur">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Scope del preview</p>
+              <p className="text-xs text-blue-700">
+                Incluye metadata + outline. No renderiza bloques.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Link
+                className="rounded-full border border-blue-200 px-3 py-1 font-semibold text-blue-800"
+                href={`${basePath}/${courseId}/edit`}
+              >
+                Editar metadata
+              </Link>
+              <Link
+                className="rounded-full border border-blue-200 px-3 py-1 font-semibold text-blue-800"
+                href={`${basePath}/${courseId}/outline`}
+              >
+                Ver outline
+              </Link>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 text-xs text-blue-800 sm:grid-cols-3">
+            <div className="rounded-xl border border-blue-100 bg-white/80 p-2">
+              Revisar unidades y orden
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-white/80 p-2">
+              Validar lecciones y quizzes
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-white/80 p-2">
+              Confirmar estado de publicacion
+            </div>
+          </div>
+        </div>
+
         {loading && (
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <div className="h-6 w-1/2 animate-pulse rounded bg-zinc-100" />
@@ -180,8 +216,18 @@ export function OrgCoursePreviewScreen({
               ) : null}
               {row.final_quiz ? (
                 <div className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">
-                  Evaluación final: {row.final_quiz.title} (
-                  {row.final_quiz.questions_count} preguntas)
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Evaluación final: {row.final_quiz.title} (
+                      {row.final_quiz.questions_count} preguntas)
+                    </span>
+                    <Link
+                      className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
+                      href={`${basePath}/${courseId}/quizzes/${row.final_quiz.quiz_id}/edit`}
+                    >
+                      Editar quiz
+                    </Link>
+                  </div>
                 </div>
               ) : null}
             </section>
@@ -210,8 +256,18 @@ export function OrgCoursePreviewScreen({
                     </div>
                     {unit.unit_quiz ? (
                       <div className="rounded-xl border border-zinc-200 px-4 py-2 text-xs text-zinc-600">
-                        Quiz de unidad: {unit.unit_quiz.title} (
-                        {unit.unit_quiz.questions_count} preguntas)
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span>
+                            Quiz de unidad: {unit.unit_quiz.title} (
+                            {unit.unit_quiz.questions_count} preguntas)
+                          </span>
+                          <Link
+                            className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
+                            href={`${basePath}/${courseId}/quizzes/${unit.unit_quiz.quiz_id}/edit`}
+                          >
+                            Editar quiz
+                          </Link>
+                        </div>
                       </div>
                     ) : null}
                     {unit.lessons.length === 0 ? (
@@ -234,11 +290,19 @@ export function OrgCoursePreviewScreen({
                                 {lesson.position}
                               </p>
                             </div>
-                            <span className="text-xs text-zinc-500">
-                              {lesson.estimated_minutes
-                                ? `${lesson.estimated_minutes} min`
-                                : '—'}
-                            </span>
+                            <div className="flex items-center gap-2 text-xs text-zinc-500">
+                              <span>
+                                {lesson.estimated_minutes
+                                  ? `${lesson.estimated_minutes} min`
+                                  : '—'}
+                              </span>
+                              <Link
+                                className="rounded-full border border-zinc-200 px-3 py-1 text-[11px] font-semibold text-zinc-600 hover:border-zinc-300"
+                                href={`${basePath}/${courseId}/lessons/${lesson.lesson_id}/edit`}
+                              >
+                                Editar leccion
+                              </Link>
+                            </div>
                           </div>
                         ))}
                       </div>

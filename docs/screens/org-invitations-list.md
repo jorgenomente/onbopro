@@ -34,6 +34,15 @@
 
 - `invitation_id`
 
+### Edge Function: provision_local_member
+
+**Payload**
+
+- `org_id`
+- `local_id`
+- `email`
+- `role` (`aprendiz` | `referente`)
+
 ## UX States
 
 - empty
@@ -43,6 +52,5 @@
 
 ## No scope creep
 
-- No provisioning/acceptance desde esta pantalla
+- No acceptance desde esta pantalla
 - No edición de roles
-- Solo reenvío de invitaciones pendientes

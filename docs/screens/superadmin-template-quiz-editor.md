@@ -59,6 +59,8 @@
 - rpc_update_template_quiz_choice
 - rpc_reorder_template_quiz_choices
 - rpc_set_template_quiz_correct_choice
+- rpc_bulk_import_template_quiz_questions
+- rpc_create_template_quiz_question_full
 
 ## Security
 

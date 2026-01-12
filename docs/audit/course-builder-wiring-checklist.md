@@ -9,8 +9,6 @@ romper el aislamiento por org/local.
 ## Flow — Org Admin (end-to-end)
 
 - `/org/courses` lista desde `public.v_org_courses`.
-- CTA "Crear curso" lleva a `/org/courses/new`.
-- `/org/courses/new` crea vía `rpc_create_course` y redirige a `/org/courses/[courseId]/outline`.
 - `/org/courses/[courseId]/outline` lee `public.v_org_course_outline`.
 - Desde outline:
   - "Editar metadata" lleva a `/org/courses/[courseId]/edit`.
