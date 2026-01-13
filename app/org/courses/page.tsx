@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { withTimeout, TimeoutError } from '@/lib/withTimeout';
+import { traceQuery } from '@/lib/diagnostics/traceQuery';
+import { diag } from '@/lib/diagnostics/diag';
+import { recheckSession } from '@/lib/sessionRecheck';
+import Breadcrumbs from '@/app/components/Breadcrumbs';
+import { coursesIndexCrumbs } from '@/app/org/_lib/breadcrumbs';
 
 type CourseStatus = 'draft' | 'published' | 'archived';
 
@@ -57,8 +63,10 @@ function assignmentLabel(names: string[], count: number) {
 
 export default function OrgCoursesPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [authExpired, setAuthExpired] = useState(false);
   const [courses, setCourses] = useState<OrgCourseRow[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -68,56 +76,115 @@ export default function OrgCoursesPage() {
   const [selectedLocalIds, setSelectedLocalIds] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
+  const requestIdRef = useRef(0);
+  const activeRequestRef = useRef<number | null>(null);
 
-  const fetchCourses = async () => {
+  const triggerFetch = () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    void fetchCourses(requestId);
+  };
+
+  const fetchCourses = async (requestId: number) => {
+    diag.log('courses_load', { step: 'start', pathname, requestId });
     setLoading(true);
     setError('');
+    setAuthExpired(false);
+    activeRequestRef.current = requestId;
 
-    const { data, error: fetchError } = await supabase
-      .from('v_org_courses')
-      .select('*');
+    let response;
+    try {
+      try {
+        await withTimeout(recheckSession(supabase), 2000, 'session_recheck');
+      } catch (err) {
+        diag.log('courses_load', {
+          step: 'session_recheck_timeout',
+          pathname,
+          requestId,
+          reason: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      diag.log('courses_load', { step: 'before_query', pathname, requestId });
+      response = await traceQuery('org_courses:list', () =>
+        withTimeout(
+          Promise.resolve(supabase.from('v_org_courses').select('*')),
+          15000,
+          'v_org_courses',
+        ),
+      );
+      diag.log('courses_load', { step: 'after_query', pathname, requestId });
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        diag.log('query_timeout', { label: 'org_courses:list', requestId });
+        await recheckSession(supabase, { forceRefresh: true });
+        response = await traceQuery('org_courses:list', () =>
+          withTimeout(
+            Promise.resolve(supabase.from('v_org_courses').select('*')),
+            15000,
+            'v_org_courses',
+          ),
+        );
+        diag.log('courses_load', {
+          step: 'after_query_retry',
+          pathname,
+          requestId,
+        });
+      } else {
+        if (activeRequestRef.current !== requestId) return;
+        const message = 'No pudimos cargar los cursos.';
+        setError(message);
+        setCourses([]);
+        setLoading(false);
+        activeRequestRef.current = null;
+        return;
+      }
+    }
+
+    if (activeRequestRef.current !== requestId) return;
+    const { data, error: fetchError } = response;
 
     if (fetchError) {
-      setError(fetchError.message);
+      const message = fetchError.message.toLowerCase();
+      if (
+        message.includes('jwt') ||
+        message.includes('token') ||
+        message.includes('expired')
+      ) {
+        setAuthExpired(true);
+        setError('Tu sesión expiró. Volvé a iniciar sesión.');
+      } else {
+        setError(fetchError.message);
+      }
       setCourses([]);
       setLoading(false);
+      activeRequestRef.current = null;
       return;
     }
 
     setCourses((data as OrgCourseRow[]) ?? []);
     setLoading(false);
+    activeRequestRef.current = null;
   };
 
   useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      setLoading(true);
-      setError('');
-
-      const { data, error: fetchError } = await supabase
-        .from('v_org_courses')
-        .select('*');
-
-      if (cancelled) return;
-
-      if (fetchError) {
-        setError(fetchError.message);
-        setCourses([]);
-        setLoading(false);
-        return;
-      }
-
-      setCourses((data as OrgCourseRow[]) ?? []);
-      setLoading(false);
-    };
-
-    void run();
+    diag.log('courses_effect', { step: 'effect_enter', pathname });
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    void fetchCourses(requestId);
 
     return () => {
-      cancelled = true;
+      if (activeRequestRef.current === requestId) {
+        activeRequestRef.current = null;
+      }
+      diag.log('courses_effect', {
+        step: 'effect_cleanup',
+        pathname,
+        requestId,
+      });
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const filteredCourses = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -179,22 +246,25 @@ export default function OrgCoursesPage() {
 
     setAssigning(false);
     setAssignOpen(false);
-    await fetchCourses();
+    triggerFetch();
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 px-6 py-10">
       <div className="mx-auto max-w-5xl">
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-xs tracking-wide text-zinc-500 uppercase">
-              Org Admin
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
-              Gerenciar Cursos
-            </h1>
+        <header className="space-y-3">
+          <Breadcrumbs items={coursesIndexCrumbs()} />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs tracking-wide text-zinc-500 uppercase">
+                Org Admin
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold text-zinc-900">
+                Gerenciar Cursos
+              </h1>
+            </div>
+            <div className="h-9 w-9 rounded-full border border-zinc-200 bg-white" />
           </div>
-          <div className="h-9 w-9 rounded-full border border-zinc-200 bg-white" />
         </header>
 
         {loading && (
@@ -211,13 +281,29 @@ export default function OrgCoursesPage() {
         {!loading && error && (
           <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm text-red-600">Error: {error}</p>
-            <button
-              className="mt-4 rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
-              onClick={fetchCourses}
-              type="button"
-            >
-              Reintentar
-            </button>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {!authExpired ? (
+                <button
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                  onClick={triggerFetch}
+                  type="button"
+                >
+                  Reintentar
+                </button>
+              ) : null}
+              {authExpired ? (
+                <button
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:border-zinc-300"
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    router.replace('/login');
+                  }}
+                >
+                  Ir a login
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
 
@@ -330,6 +416,19 @@ export default function OrgCoursesPage() {
                         className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
                       >
                         Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(
+                            `/org/courses/${course.course_id}/analytics`,
+                          );
+                        }}
+                        aria-label={`Ver analytics del curso ${course.title}`}
+                        className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                      >
+                        Analytics
                       </button>
                       <button
                         type="button"

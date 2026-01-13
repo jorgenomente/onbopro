@@ -1,9 +1,15 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { withTimeout, TimeoutError } from '@/lib/withTimeout';
+import { traceQuery } from '@/lib/diagnostics/traceQuery';
+import { diag } from '@/lib/diagnostics/diag';
+import { recheckSession } from '@/lib/sessionRecheck';
+import Breadcrumbs from '@/app/components/Breadcrumbs';
+import { courseOutlineCrumbs } from '@/app/org/_lib/breadcrumbs';
 
 type LessonType =
   | 'text'
@@ -150,7 +156,10 @@ export function OrgCourseOutlineScreen({
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const [authExpired, setAuthExpired] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const requestIdRef = useRef(0);
   const [row, setRow] = useState<CourseOutlineRow | null>(null);
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [lessonModalUnitId, setLessonModalUnitId] = useState<string | null>(
@@ -173,24 +182,70 @@ export function OrgCourseOutlineScreen({
 
   const refetchOutline = async () => {
     if (!courseId) return;
+    if (inFlightRef.current) return;
     setLoading(true);
     setError('');
+    setAuthExpired(false);
+    inFlightRef.current = true;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
-    const { data, error: fetchError } = await supabase
-      .from(viewName)
-      .select('*')
-      .eq('course_id', courseId)
-      .maybeSingle();
-
-    if (fetchError) {
-      setError(fetchError.message);
+    let response;
+    try {
+      await recheckSession(supabase);
+      response = await traceQuery('org_course:outline', () =>
+        withTimeout(
+          Promise.resolve(
+            supabase
+              .from(viewName)
+              .select('*')
+              .eq('course_id', courseId)
+              .maybeSingle(),
+          ),
+          15000,
+          viewName,
+        ),
+      );
+    } catch (err) {
+      if (requestIdRef.current !== requestId) return;
+      if (err instanceof TimeoutError) {
+        diag.log('query_timeout', { label: 'org_course:outline' });
+      }
+      const message =
+        err instanceof TimeoutError
+          ? 'La solicitud tardó demasiado. Reintentá.'
+          : 'No pudimos cargar el curso.';
+      setError(message);
       setRow(null);
       setLoading(false);
+      inFlightRef.current = false;
+      return;
+    }
+
+    if (requestIdRef.current !== requestId) return;
+    const { data, error: fetchError } = response;
+
+    if (fetchError) {
+      const message = fetchError.message.toLowerCase();
+      if (
+        message.includes('jwt') ||
+        message.includes('token') ||
+        message.includes('expired')
+      ) {
+        setAuthExpired(true);
+        setError('Tu sesión expiró. Volvé a iniciar sesión.');
+      } else {
+        setError(fetchError.message);
+      }
+      setRow(null);
+      setLoading(false);
+      inFlightRef.current = false;
       return;
     }
 
     setRow((data as CourseOutlineRow) ?? null);
     setLoading(false);
+    inFlightRef.current = false;
   };
 
   useEffect(() => {
@@ -198,26 +253,70 @@ export function OrgCourseOutlineScreen({
 
     const run = async () => {
       if (!courseId) return;
+      if (inFlightRef.current) return;
       setLoading(true);
       setError('');
+      setAuthExpired(false);
+      inFlightRef.current = true;
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
 
-      const { data, error: fetchError } = await supabase
-        .from(viewName)
-        .select('*')
-        .eq('course_id', courseId)
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      if (fetchError) {
-        setError(fetchError.message);
+      let response;
+      try {
+        await recheckSession(supabase);
+        response = await traceQuery('org_course:outline', () =>
+          withTimeout(
+            Promise.resolve(
+              supabase
+                .from(viewName)
+                .select('*')
+                .eq('course_id', courseId)
+                .maybeSingle(),
+            ),
+            15000,
+            viewName,
+          ),
+        );
+      } catch (err) {
+        if (cancelled || requestIdRef.current !== requestId) return;
+        if (err instanceof TimeoutError) {
+          diag.log('query_timeout', { label: 'org_course:outline' });
+        }
+        const message =
+          err instanceof TimeoutError
+            ? 'La solicitud tardó demasiado. Reintentá.'
+            : 'No pudimos cargar el curso.';
+        setError(message);
         setRow(null);
         setLoading(false);
+        inFlightRef.current = false;
+        return;
+      }
+
+      if (cancelled || requestIdRef.current !== requestId) return;
+      const { data, error: fetchError } = response;
+
+      if (fetchError) {
+        const message = fetchError.message.toLowerCase();
+        if (
+          message.includes('jwt') ||
+          message.includes('token') ||
+          message.includes('expired')
+        ) {
+          setAuthExpired(true);
+          setError('Tu sesión expiró. Volvé a iniciar sesión.');
+        } else {
+          setError(fetchError.message);
+        }
+        setRow(null);
+        setLoading(false);
+        inFlightRef.current = false;
         return;
       }
 
       setRow((data as CourseOutlineRow) ?? null);
       setLoading(false);
+      inFlightRef.current = false;
     };
 
     void run();
@@ -232,7 +331,6 @@ export function OrgCourseOutlineScreen({
   const courseBase = `${basePath}/${courseId}`;
   const backLink = backHref ?? basePath;
   const isTemplate = basePath.startsWith('/superadmin/course-library');
-  const backLabel = isTemplate ? 'Templates' : 'Cursos';
   const resolvedExtraActions =
     typeof extraActions === 'function' ? extraActions(row) : extraActions;
 
@@ -420,13 +518,12 @@ export function OrgCourseOutlineScreen({
     <div className="min-h-screen bg-zinc-50 px-6 py-10">
       <div className="mx-auto max-w-5xl">
         <header className="space-y-4">
-          <nav className="flex items-center gap-2 text-xs text-zinc-500">
-            <Link href={backLink} className="font-semibold text-zinc-700">
-              {backLabel}
-            </Link>
-            <span>/</span>
-            <span>{row?.course_title ?? 'Outline'}</span>
-          </nav>
+          <Breadcrumbs
+            items={courseOutlineCrumbs({
+              courseId,
+              courseTitle: row?.course_title ?? null,
+            })}
+          />
 
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -462,6 +559,12 @@ export function OrgCourseOutlineScreen({
                   </Link>
                 ) : null}
                 <Link
+                  href={`${courseBase}/analytics`}
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                >
+                  Analytics
+                </Link>
+                <Link
                   href={`${courseBase}/edit`}
                   className="rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
                 >
@@ -487,12 +590,28 @@ export function OrgCourseOutlineScreen({
         {!loading && error && (
           <div className="mt-8 rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm text-red-600">Error: {error}</p>
-            <Link
-              href={backLink}
-              className="mt-4 inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
-            >
-              Volver
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {!authExpired ? (
+                <Link
+                  href={backLink}
+                  className="inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                >
+                  Volver
+                </Link>
+              ) : null}
+              {authExpired ? (
+                <button
+                  className="inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+                  type="button"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    router.replace('/login');
+                  }}
+                >
+                  Ir a login
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
 

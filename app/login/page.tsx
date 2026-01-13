@@ -17,19 +17,27 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setLoading(false);
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
 
-    if (signInError) {
-      setError(signInError.message);
-      return;
+      router.replace('/');
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo conectar con el servidor de autenticacion.',
+      );
+    } finally {
+      setLoading(false);
     }
-
-    router.replace('/');
   };
 
   return (

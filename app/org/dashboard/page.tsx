@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { traceQuery } from '@/lib/diagnostics/traceQuery';
 
 type OrgLocal = {
   local_id: string;
@@ -100,10 +101,13 @@ export default function OrgDashboardPage() {
       setLoading(true);
       setError('');
 
-      const { data, error: fetchError } = await supabase
-        .from('v_org_dashboard')
-        .select('*')
-        .single();
+      const response = await traceQuery('org_dashboard:summary', () =>
+        Promise.resolve(supabase.from('v_org_dashboard').select('*').single()),
+      );
+      const { data, error: fetchError } = response as {
+        data: OrgDashboardRow | null;
+        error: { code?: string; message: string } | null;
+      };
 
       if (cancelled) return;
 

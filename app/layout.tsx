@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Header from './components/Header';
+import SessionRevalidateOnFocus from './components/SessionRevalidateOnFocus';
+import DevNavDiagnostics from './components/DevNavDiagnostics';
+import DevAuthDiagnostics from './components/DevAuthDiagnostics';
+import DevDiagnosticsOverlay from './components/DevDiagnosticsOverlay';
 
 export const metadata: Metadata = {
   title: 'Create Next App',
@@ -16,6 +20,14 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <Header />
+        <SessionRevalidateOnFocus />
+        {process.env.NODE_ENV !== 'production' ? (
+          <>
+            <DevNavDiagnostics />
+            <DevAuthDiagnostics />
+            <DevDiagnosticsOverlay />
+          </>
+        ) : null}
         {children}
       </body>
     </html>

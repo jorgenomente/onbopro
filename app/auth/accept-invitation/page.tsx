@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { invokeEdge } from '@/lib/invokeEdge';
+import { fetchWithTimeout, TimeoutError } from '@/lib/fetchWithTimeout';
 
 type InvitationContext = {
   invitation_id: string;
@@ -57,6 +58,7 @@ function AcceptInvitationInner() {
   const [loading, setLoading] = useState(true);
   const [context, setContext] = useState<InvitationContext | null>(null);
   const [error, setError] = useState('');
+  const [reloadToken, setReloadToken] = useState(0);
   const [fullName, setFullName] = useState('');
   const [existingFullName, setExistingFullName] = useState('');
   const [sessionEmail, setSessionEmail] = useState('');
@@ -107,16 +109,30 @@ function AcceptInvitationInner() {
         return;
       }
 
-      const response = await fetch(
-        `${supabaseUrl}/rest/v1/v_invitation_public?select=*`,
-        {
-          headers: {
-            apikey: anonKey,
-            Authorization: `Bearer ${anonKey}`,
-            'x-invite-token': token,
+      let response: Response;
+      try {
+        response = await fetchWithTimeout(
+          `${supabaseUrl}/rest/v1/v_invitation_public?select=*`,
+          {
+            headers: {
+              apikey: anonKey,
+              Authorization: `Bearer ${anonKey}`,
+              'x-invite-token': token,
+            },
           },
-        },
-      );
+          { timeoutMs: 15000 },
+        );
+      } catch (err) {
+        if (!cancelled) {
+          if (err instanceof TimeoutError) {
+            setError('La solicitud tardó demasiado. Reintentá.');
+          } else {
+            setError('No pudimos conectar. Reintentá.');
+          }
+          setLoading(false);
+        }
+        return;
+      }
 
       const payload = (await response.json()) as InvitationContext[];
       if (!response.ok || payload.length === 0) {
@@ -135,7 +151,7 @@ function AcceptInvitationInner() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, reloadToken]);
 
   const canSubmit = useMemo(() => {
     if (loginRequired) return false;
@@ -185,56 +201,62 @@ function AcceptInvitationInner() {
 
     setSubmitting(true);
 
-    if (hasSession) {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
-      });
+    try {
+      if (hasSession) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          password,
+        });
 
-      if (updateError) {
-        setSubmitting(false);
+        if (updateError) {
+          setSubmitError(
+            updateError.message ?? 'No se pudo actualizar la contraseña.',
+          );
+          return;
+        }
+      }
+
+      const {
+        data,
+        error: edgeError,
+        status,
+      } = await invokeEdge<AcceptResponse>(
+        'accept_invitation',
+        {
+          token,
+          password: hasSession ? undefined : password,
+          full_name: normalizedName.length > 0 ? normalizedName : undefined,
+        },
+        { anon: !hasSession },
+      );
+
+      if (edgeError) {
+        if (edgeError.code === 'AUTH_EXPIRED') {
+          setLoginRequired(true);
+          setSubmitError('Tu sesión expiró. Volvé a iniciar sesión.');
+          return;
+        }
+        if (status === 409) {
+          setLoginRequired(true);
+          return;
+        }
         setSubmitError(
-          updateError.message ?? 'No se pudo actualizar la contraseña.',
+          formatEdgeError(
+            edgeError.message ?? 'No se pudo aceptar la invitación.',
+            edgeError,
+          ),
         );
         return;
       }
-    }
 
-    const {
-      data,
-      error: edgeError,
-      status,
-    } = await invokeEdge<AcceptResponse>(
-      'accept_invitation',
-      {
-        token,
-        password: hasSession ? undefined : password,
-        full_name: normalizedName.length > 0 ? normalizedName : undefined,
-      },
-      { anon: !hasSession },
-    );
-
-    setSubmitting(false);
-
-    if (edgeError) {
-      if (status === 409) {
-        setLoginRequired(true);
+      if (!data?.ok) {
+        setSubmitError('No se pudo aceptar la invitación.');
         return;
       }
-      setSubmitError(
-        formatEdgeError(
-          edgeError.message ?? 'No se pudo aceptar la invitación.',
-          edgeError,
-        ),
-      );
-      return;
-    }
 
-    if (!data?.ok) {
-      setSubmitError('No se pudo aceptar la invitación.');
-      return;
+      router.replace('/');
+    } finally {
+      setSubmitting(false);
     }
-
-    router.replace('/');
   };
 
   const emailFromInvitation = context?.email?.trim() || sessionEmail.trim();
@@ -256,12 +278,25 @@ function AcceptInvitationInner() {
             Invitación inválida
           </h1>
           <p className="text-sm text-zinc-600">{error}</p>
-          <Link
-            className="inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-300"
-            href="/login"
-          >
-            Ir a iniciar sesión
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-300"
+              type="button"
+              onClick={() => {
+                setError('');
+                setLoading(true);
+                setReloadToken((value) => value + 1);
+              }}
+            >
+              Reintentar
+            </button>
+            <Link
+              className="inline-flex rounded-xl border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-300"
+              href="/login"
+            >
+              Ir a iniciar sesión
+            </Link>
+          </div>
         </div>
       </div>
     );

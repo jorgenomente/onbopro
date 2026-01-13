@@ -37,7 +37,7 @@
 - answered_count bigint — respuestas del usuario para el intento — single row
 - current_question_index bigint — 1..N (nullable) — single row
 - current_question_id uuid — pregunta actual (nullable) — single row
-- questions jsonb — array ordenado de preguntas con opciones — single row
+- questions jsonb — array ordenado de preguntas con opciones (incluye explanation cuando aplica) — single row
 - score integer — quiz_attempts.score (nullable) — single row
 - passed boolean — quiz_attempts.passed (nullable) — single row
 
@@ -83,6 +83,7 @@
 
 - Si show_correct_answers = true y attempt_status = submitted:
   - options incluyen is_correct (solo en ese estado).
+  - questions incluyen explanation (solo en ese estado).
   - UI puede resaltar correctas/incorrectas sin filtrar en frontend.
     \*\*\* End Patch"}}
 

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { invokeEdge } from '@/lib/invokeEdge';
+import Breadcrumbs from '@/app/components/Breadcrumbs';
+import { localInviteCrumbs } from '@/app/org/_lib/breadcrumbs';
 
 type LocalContext = {
   org_id: string;
@@ -59,6 +61,7 @@ export default function InviteLocalMemberPage() {
   const [role, setRole] = useState<'aprendiz' | 'referente'>('aprendiz');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [authExpired, setAuthExpired] = useState(false);
   const [toast, setToast] = useState('');
 
   useEffect(() => {
@@ -101,6 +104,7 @@ export default function InviteLocalMemberPage() {
   const handleSubmit = async () => {
     setSubmitError('');
     setToast('');
+    setAuthExpired(false);
 
     const normalized = email.trim().toLowerCase();
     if (!emailRegex.test(normalized)) {
@@ -115,45 +119,52 @@ export default function InviteLocalMemberPage() {
 
     setSubmitting(true);
 
-    const { data, error: edgeError } = await invokeEdge<InviteResponse>(
-      'provision_local_member',
-      {
-        org_id: context.org_id,
-        local_id: context.local_id,
-        email: normalized,
-        role,
-      },
-    );
+    try {
+      const { data, error: edgeError } = await invokeEdge<InviteResponse>(
+        'provision_local_member',
+        {
+          org_id: context.org_id,
+          local_id: context.local_id,
+          email: normalized,
+          role,
+        },
+      );
 
-    setSubmitting(false);
-
-    if (edgeError) {
-      const message = edgeError.message ?? 'No se pudo enviar la invitación.';
-      if (edgeError.status === 42501 || edgeError.status === 403) {
-        setSubmitError('No autorizado.');
-        return;
-      }
-      if (edgeError.status === 22023) {
+      if (edgeError) {
+        const message = edgeError.message ?? 'No se pudo enviar la invitación.';
+        if (edgeError.code === 'AUTH_EXPIRED') {
+          setAuthExpired(true);
+          setSubmitError('Tu sesión expiró. Volvé a iniciar sesión.');
+          return;
+        }
+        if (edgeError.status === 42501 || edgeError.status === 403) {
+          setSubmitError('No autorizado.');
+          return;
+        }
+        if (edgeError.status === 22023) {
+          setSubmitError(formatEdgeError(message, edgeError));
+          return;
+        }
         setSubmitError(formatEdgeError(message, edgeError));
         return;
       }
-      setSubmitError(formatEdgeError(message, edgeError));
-      return;
-    }
 
-    if (!data) {
-      setSubmitError('Respuesta inválida del servidor.');
-      return;
-    }
+      if (!data) {
+        setSubmitError('Respuesta inválida del servidor.');
+        return;
+      }
 
-    if (data.result === 'member_added') {
-      setToast('Usuario agregado al local.');
+      if (data.result === 'member_added') {
+        setToast('Usuario agregado al local.');
+        setEmail('');
+        return;
+      }
+
+      setToast('Invitación enviada.');
       setEmail('');
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    setToast('Invitación enviada.');
-    setEmail('');
   };
 
   if (loading) {
@@ -199,6 +210,12 @@ export default function InviteLocalMemberPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
+        <Breadcrumbs
+          items={localInviteCrumbs({
+            localId,
+            localName: context.local_name,
+          })}
+        />
         <p className="text-xs tracking-wide text-zinc-500 uppercase">
           Organización · {context.org_name}
         </p>
@@ -246,6 +263,18 @@ export default function InviteLocalMemberPage() {
 
         {submitError ? (
           <p className="text-sm text-red-600">{submitError}</p>
+        ) : null}
+        {authExpired ? (
+          <button
+            className="inline-flex w-fit rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 hover:border-zinc-300"
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.replace('/login');
+            }}
+          >
+            Ir a iniciar sesión
+          </button>
         ) : null}
         {toast ? <p className="text-sm text-emerald-600">{toast}</p> : null}
 

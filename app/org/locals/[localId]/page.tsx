@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import InviteMemberModal, {
   InviteMemberResult,
 } from '@/components/org/invitations/InviteMemberModal';
@@ -11,6 +11,8 @@ import InvitationsList from '@/components/org/invitations/InvitationsList';
 import { InvitationRow } from '@/components/org/invitations/InvitationCard';
 import { invokeEdge } from '@/lib/invokeEdge';
 import { supabase } from '@/lib/supabase/client';
+import Breadcrumbs from '@/app/components/Breadcrumbs';
+import { localDetailCrumbs } from '@/app/org/_lib/breadcrumbs';
 
 type LocalLearner = {
   learner_id: string;
@@ -73,7 +75,6 @@ function learnerStatusClass(status: LocalLearner['status']) {
 }
 
 export default function OrgLocalDetailPage() {
-  const router = useRouter();
   const params = useParams();
   const localId = params?.localId as string;
   const [loading, setLoading] = useState(true);
@@ -249,13 +250,12 @@ export default function OrgLocalDetailPage() {
     <div className="min-h-screen bg-zinc-50 px-6 py-10">
       <div className="mx-auto max-w-5xl">
         <header className="flex flex-col gap-3">
-          <button
-            className="text-xs font-semibold text-zinc-500 hover:text-zinc-700"
-            type="button"
-            onClick={() => router.push('/org/dashboard')}
-          >
-            ← Back to Org Overview
-          </button>
+          <Breadcrumbs
+            items={localDetailCrumbs({
+              localId,
+              localName: row?.local_name ?? null,
+            })}
+          />
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>

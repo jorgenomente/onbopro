@@ -3871,3 +3871,684 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Notes / decisions**
 
 - Audit-only change; no app or DB logic modified
+
+### 2026-01-12T16:46:33Z — org quiz prompt settings (org_settings)
+
+**Goal**
+
+- Add org-level storage, view wiring, RPC update, and UI modal for ONBO quiz prompt
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/org-quiz-editor.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112170000_103_org_settings_schema.sql
+- supabase/migrations/20260112170100_104_org_settings_rls.sql
+- supabase/migrations/20260112170200_105_update_v_org_quiz_detail_add_quiz_prompt.sql
+- supabase/migrations/20260112170300_106_rpc_update_org_quiz_prompt.sql
+- app/org/courses/[courseId]/quizzes/[quizId]/edit/page.tsx
+- docs/schema-guide.md
+- docs/screens/org-quiz-editor.md
+- docs/ops/smoke/org-quiz-prompt-settings-smoke.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added org_settings table with audit fields and updated_at trigger
+- Added RLS policies and helper for org-level prompt management
+- Extended quiz detail views to include quiz_prompt with default fallback
+- Added RPC to upsert org quiz prompt with validation
+- Added Prompt ONBO modal with copy/save/reset actions in org quiz editor
+- Updated schema and screen docs plus smoke test steps
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Template quiz editor uses default prompt and does not persist org settings
+
+### 2026-01-12T17:09:01Z — quiz archived questions UI + restore
+
+**Goal**
+
+- Add archived questions view and restore flow in quiz editor without hard delete
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/org-quiz-editor.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112172000_107_create_v_org_quiz_archived_questions.sql
+- supabase/migrations/20260112172100_108_rpc_unarchive_quiz_question.sql
+- app/org/courses/[courseId]/quizzes/[quizId]/edit/page.tsx
+- docs/screens/org-quiz-editor.md
+- docs/ops/smoke/quiz-archived-questions-smoke.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added archived questions view scoped to org admin/superadmin
+- Added RPC to restore archived quiz questions
+- Added UI modal to list archived questions with restore and restore+edit
+- Added scroll-to-restored behavior and data attributes for targeting
+- Documented screen behavior and smoke test steps
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- No hard delete; restore repositions question at end of active list
+
+### 2026-01-12T17:40:05Z — quiz question EXPLAIN support (org)
+
+**Goal**
+
+- Persist and surface EXPLAIN for org quiz questions (bulk import + editor)
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/org-quiz-editor.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112173000_109_add_quiz_question_explanation.sql
+- supabase/migrations/20260112173100_110_update_rpc_bulk_import_quiz_questions_explain.sql
+- supabase/migrations/20260112173200_111_update_quiz_question_rpcs_explain.sql
+- supabase/migrations/20260112173300_112_update_v_org_quiz_detail_questions_explain.sql
+- app/org/courses/[courseId]/quizzes/[quizId]/edit/page.tsx
+- docs/screens/org-quiz-editor.md
+- docs/ops/smoke/quiz-explain-smoke.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added quiz_questions.explanation column
+- Updated bulk import RPC to persist EXPLAIN
+- Updated quiz question RPCs to accept explanation (including full create)
+- Exposed explanation in v_org_quiz_detail JSON
+- Added explanation field to quiz editor draft/edit/view
+- Added EXPLAIN smoke test steps
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Template quizzes not updated; EXPLAIN scoped to org quizzes for now
+
+### 2026-01-12T17:53:03Z — quiz EXPLAIN in learner player
+
+**Goal**
+
+- Expose and render explanation in learner quiz player with correct-answers gating
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/screens/quiz-player.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112175000_113_update_v_quiz_state_explanation.sql
+- app/l/[localId]/quizzes/[quizId]/page.tsx
+- docs/screens/quiz-player.md
+- docs/ops/smoke/quiz-explain-player-smoke.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added explanation to v_quiz_state question JSON gated by show_correct_answers post-submit
+- Rendered explanation in learner quiz player when gating allows
+- Documented player contract and smoke steps
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Explanation visibility uses the same predicate as is_correct in v_quiz_state
+
+### 2026-01-12T18:01:32Z — quiz analytics views (org + ref)
+
+**Goal**
+
+- Implement analytics views for quizzes/questions/options with org and local scopes
+
+**Docs consulted**
+
+- docs/schema-guide.md
+- docs/rls-cheatsheet.md
+- docs/integrity-rules.md
+- docs/onboarding-provisioning.md
+- docs/query-patterns.md
+- docs/migrations-playbook.md
+- docs/audit/quiz-analytics-screen-contract.md
+- AGENTS.md
+
+**Files changed**
+
+- supabase/migrations/20260112180000_114_create_v_org_quiz_analytics.sql
+- supabase/migrations/20260112180100_115_create_v_org_quiz_question_analytics.sql
+- supabase/migrations/20260112180200_116_create_v_org_quiz_option_analytics.sql
+- supabase/migrations/20260112180300_117_create_v_ref_quiz_analytics.sql
+- supabase/migrations/20260112180400_118_create_v_ref_quiz_question_analytics.sql
+- supabase/migrations/20260112180500_119_create_v_ref_quiz_option_analytics.sql
+- supabase/migrations/20260112180600_120_quiz_analytics_indexes.sql
+- docs/screens/quiz-analytics-org.md
+- docs/screens/quiz-analytics-ref.md
+- docs/ops/smoke/quiz-analytics-smoke.md
+- docs/audit/quiz-analytics-verification-20260112.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added org and referente analytics views for quiz, question, and option metrics
+- Scoped analytics by org/local using helper-based access CTEs
+- Added supporting indexes for analytics joins
+- Documented screen contracts, smoke checks, and verification steps
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Analytics aggregates only submitted attempts; free-text answers count only toward answered_count
+
+### 2026-01-12T18:35:18Z — org header context + breadcrumbs (org admin)
+
+**Goal**
+
+- Resolve org/local display in header and add shared breadcrumbs for core Org Admin routes
+
+**Docs consulted**
+
+- docs/audit/org-header-context-and-breadcrumbs.md
+- docs/screens-data-map.md
+- AGENTS.md
+
+**Files changed**
+
+- app/components/Header.tsx
+- app/components/Breadcrumbs.tsx
+- app/org/\_lib/breadcrumbs.ts
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- app/org/courses/[courseId]/analytics/page.tsx
+- app/org/locals/[localId]/page.tsx
+- app/org/locals/[localId]/members/invite/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Fetch org name in Header via organizations using v_my_context org_admin_org_id, with metadata fallback
+- Resolve local name in Header for org routes via v_org_local_context when localId is present
+- Added shared Breadcrumbs component and per-route helper
+- Integrated breadcrumbs into core Org Admin screens with TODO for course_title gap in analytics
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Header local name lookup only runs on /org routes to avoid cross-scope queries
+- Analytics breadcrumb uses generic “Curso” pending view support for course_title
+
+### 2026-01-12T18:53:04Z — navigation hangs Phase 1 (timeouts + auth recovery)
+
+**Goal**
+
+- Convert hangs into recoverable errors via timeouts and auth-expired handling
+
+**Docs consulted**
+
+- docs/audit/navigation-hangs-auth-session-audit.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/fetchWithTimeout.ts
+- lib/invokeEdge.ts
+- app/auth/accept-invitation/page.tsx
+- app/org/locals/[localId]/members/invite/page.tsx
+- app/org/invitations/page.tsx
+- app/components/Header.tsx
+- docs/audit/navigation-hangs-auth-session-audit.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added timeout/abort helper and applied to Edge and invitation fetches
+- Normalized Edge errors for auth-expired/network/timeout
+- Added retry and auth-expired CTAs in invite flows
+- Debounced Header refresh on auth events
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Kept changes UI-only and wrapper-level; no SQL or middleware added
+
+### 2026-01-12T19:01:16Z — tab resume session revalidation
+
+**Goal**
+
+- Revalidate Supabase session on tab resume to prevent navigation hangs
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- app/components/SessionRevalidateOnFocus.tsx
+- app/layout.tsx
+- app/components/Header.tsx
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- docs/audit/tab-switch-navigation-hangs.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added focus/visibility session revalidation with throttle and refresh only on token change
+- Limited auth refresh in Header to SIGNED_IN / SIGNED_OUT
+- Added auth-expired recovery CTAs in two critical org screens
+- Documented fix in tab-switch audit
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- No middleware added; session revalidation runs client-side only
+
+### 2026-01-12T19:07:18Z — tab resume diagnostics + hard revalidate
+
+**Goal**
+
+- Add dev-only nav diagnostics and force session refresh on tab resume
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- app/components/DevNavDiagnostics.tsx
+- app/components/SessionRevalidateOnFocus.tsx
+- app/components/Header.tsx
+- app/layout.tsx
+- lib/withTimeout.ts
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- docs/audit/tab-switch-navigation-hangs.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added DEV-only navigation diagnostics for focus/visibility, errors, and path changes
+- Forced refreshSession on tab resume with throttling and token-change refresh
+- Removed Header refresh on SIGNED_IN to reduce router stuck states
+- Added timeouts to critical org data fetches to avoid infinite loading
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Dev diagnostics are gated by NODE_ENV and not rendered in production
+
+### 2026-01-12T19:35:50Z — supabase fetch abort/timeout
+
+**Goal**
+
+- Ensure Supabase client requests abort on timeout to avoid pending fetches after tab resume
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/http/fetchWithTimeoutAbort.ts
+- lib/supabase/client.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added fetch wrapper with AbortController and retry for network/abort errors
+- Injected custom fetch into Supabase client with 15s timeout + single retry
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Wrapper logs are DEV-only and avoid logging tokens or headers
+
+### 2026-01-12T19:07:18Z — diagnostics pack (dev-only)
+
+**Goal**
+
+- Add DEV-only diagnostics for tab-switch hangs (fetch/auth/nav)
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/diagnostics/diag.ts
+- lib/diagnostics/instrumentedFetch.ts
+- app/components/DevAuthDiagnostics.tsx
+- app/components/DevNavDiagnostics.tsx
+- app/components/DevDiagnosticsOverlay.tsx
+- app/layout.tsx
+- docs/audit/diagnostics-howto-tab-switch.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added in-memory diagnostics buffer and instrumented fetch logging
+- Added DEV-only auth/nav diagnostics and overlay panel
+- Documented reproduction and log reading guide
+
+**Validation**
+
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Diagnostics are gated by NODE_ENV and do not log sensitive headers
+
+### 2026-01-12T20:27:31Z — diagnostics reinforcement (client mismatch + query traces)
+
+**Goal**
+
+- Ensure fetch instrumentation is active and trace queries in critical org screens
+
+**Docs consulted**
+
+- docs/audit/diagnostics-howto-tab-switch.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/diagnostics/instrumentedFetch.ts
+- lib/supabase/client.ts
+- lib/diagnostics/traceQuery.ts
+- app/components/DevAuthDiagnostics.tsx
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- app/org/dashboard/page.tsx
+- docs/audit/diagnostics-howto-tab-switch.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added client instance id to fetch logs and logged client init
+- Added query tracing for org courses, outline, and dashboard
+- Added DEV self-test fetch to confirm instrumentation is active
+- Updated diagnostics how-to with query vs fetch guidance
+
+**Validation**
+
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Self-test uses /auth/v1/user with anon key to force a logged request
+
+### 2026-01-12T20:27:31Z — auth barrier + query gating
+
+**Goal**
+
+- Serialize auth refresh and prevent concurrent org queries after tab resume
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/authBarrier.ts
+- app/components/AuthBarrier.tsx
+- app/layout.tsx
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added auth barrier with refresh lock and focus/visibility trigger
+- Gated org courses and outline queries to avoid concurrent fetches
+- Added in-flight guards and request id checks to prevent duplicate runs
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Auth barrier runs client-side and avoids router.refresh during refresh
+
+### 2026-01-12T20:45:08Z — courses lifecycle diagnostics
+
+**Goal**
+
+- Trace /org/courses lifecycle and gates when fetch does not fire
+
+**Docs consulted**
+
+- docs/audit/diagnostics-howto-tab-switch.md
+- AGENTS.md
+
+**Files changed**
+
+- app/org/courses/page.tsx
+- docs/audit/diagnostics-howto-tab-switch.md
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added lifecycle logs for /org/courses render/effect/load and inflight toggles
+- Bound effect to pathname for tab-resume navigation checks
+
+**Validation**
+
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Diagnostics are DEV-only via diag buffer
+
+### 2026-01-12T20:49:41Z — auth barrier timeout + soft gating for courses
+
+**Goal**
+
+- Prevent auth barrier deadlock from blocking org courses loads
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/authBarrier.ts
+- app/org/courses/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added hard timeouts and guaranteed unlock to auth barrier refresh
+- Added soft auth gating (max 2s wait) for /org/courses queries
+
+**Validation**
+
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Auth barrier now fails open to keep UI responsive
+
+### 2026-01-12T20:55:42Z — session recheck (no await refresh) + remove auth barrier
+
+**Goal**
+
+- Replace auth barrier with session recheck to avoid refreshSession deadlock
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/sessionRecheck.ts
+- app/components/SessionRevalidateOnFocus.tsx
+- app/org/courses/page.tsx
+- app/org/courses/[courseId]/outline/page.tsx
+- app/layout.tsx
+- app/components/AuthBarrier.tsx
+- lib/authBarrier.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added session recheck helper based on getSession with fire-and-forget refresh
+- Removed auth barrier gating and updated courses/outline to use recheck
+- Unmounted and deleted AuthBarrier to avoid deadlocks
+
+**Validation**
+
+- [ ] npm run lint
+- [ ] npm run build
+
+**Notes / decisions**
+
+- Session readiness now based on getSession polling instead of awaiting refreshSession
+
+### 2026-01-12T21:03:27Z — org courses effect idempotency
+
+**Goal**
+
+- Make /org/courses data load StrictMode-safe and avoid inflight deadlocks
+
+**Docs consulted**
+
+- docs/audit/diagnostics-howto-tab-switch.md
+- AGENTS.md
+
+**Files changed**
+
+- app/org/courses/page.tsx
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Reworked courses load to use requestId + stale guard instead of inflight lock
+- Added effect cleanup that only marks stale requests
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Kept diagnostics logs for lifecycle tracing
+
+### 2026-01-13T23:05:00Z — fix auth race condition on initial load
+
+**Goal**
+
+- Fix app not loading after tab-switch fix changes
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- app/components/SessionRevalidateOnFocus.tsx
+- lib/http/fetchWithTimeoutAbort.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Added mount delay (1s) to SessionRevalidateOnFocus to prevent interference with initial page load
+- Fixed TypeScript error in fetchWithTimeoutAbort.ts (null check for abortFromExternal)
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Race condition caused by SessionRevalidateOnFocus competing with page.tsx getSession during initial load

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { invokeEdge } from '@/lib/invokeEdge';
 import { supabase } from '@/lib/supabase/client';
 import InviteMemberModal, {
@@ -29,6 +30,7 @@ function formatEdgeError(
 }
 
 export default function OrgInvitationsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<InvitationRow[]>([]);
@@ -41,6 +43,7 @@ export default function OrgInvitationsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState('');
   const [actionToast, setActionToast] = useState('');
+  const [authExpired, setAuthExpired] = useState(false);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
 
@@ -106,22 +109,30 @@ export default function OrgInvitationsPage() {
   const handleResend = async (invitationId: string) => {
     setActionError('');
     setActionToast('');
+    setAuthExpired(false);
     setActioningId(invitationId);
 
-    const { error: edgeError } = await invokeEdge('resend_invitation', {
-      invitation_id: invitationId,
-    });
+    try {
+      const { error: edgeError } = await invokeEdge('resend_invitation', {
+        invitation_id: invitationId,
+      });
 
-    setActioningId(null);
+      if (edgeError) {
+        if (edgeError.code === 'AUTH_EXPIRED') {
+          setAuthExpired(true);
+          setActionError('Tu sesión expiró. Volvé a iniciar sesión.');
+          return;
+        }
+        const message = edgeError.message ?? 'No se pudo reenviar.';
+        setActionError(formatEdgeError(message, edgeError));
+        return;
+      }
 
-    if (edgeError) {
-      const message = edgeError.message ?? 'No se pudo reenviar.';
-      setActionError(formatEdgeError(message, edgeError));
-      return;
+      setActionToast('Invitación reenviada.');
+      setRefreshKey((value) => value + 1);
+    } finally {
+      setActioningId(null);
     }
-
-    setActionToast('Invitación reenviada.');
-    setRefreshKey((value) => value + 1);
   };
 
   const handleInviteSuccess = (result?: InviteMemberResult) => {
@@ -197,7 +208,19 @@ export default function OrgInvitationsPage() {
 
             {actionError ? (
               <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
-                {actionError}
+                <p>{actionError}</p>
+                {authExpired ? (
+                  <button
+                    className="mt-3 inline-flex rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:border-red-300"
+                    type="button"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      router.replace('/login');
+                    }}
+                  >
+                    Ir a iniciar sesión
+                  </button>
+                ) : null}
               </div>
             ) : null}
             {actionToast ? (

@@ -20,6 +20,7 @@ type QuizQuestion = {
   question_id: string;
   position: number;
   prompt: string;
+  explanation?: string | null;
   options: QuizQuestionOption[] | null;
   selected_option_id: string | null;
   answer_text: string | null;
@@ -393,6 +394,16 @@ export default function QuizPlayerPage() {
                         />
                       </div>
                     )}
+                    {canShowCorrect && question.explanation?.trim() ? (
+                      <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+                        <p className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+                          Explicación
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap">
+                          {question.explanation}
+                        </p>
+                      </div>
+                    ) : null}
                   </div>
                 </Card>
               ))

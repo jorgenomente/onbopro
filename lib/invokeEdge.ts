@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client';
+import { fetchWithTimeout, TimeoutError } from '@/lib/fetchWithTimeout';
 
 type InvokeEdgeOptions = {
   anon?: boolean;
@@ -98,6 +99,7 @@ export async function invokeEdge<T = unknown>(
   }
 
   const endpoint = `${functionsUrl}/${functionName}`;
+  const startedAt = Date.now();
 
   if (isDev) {
     const origin = isBrowser ? window.location.origin : null;
@@ -119,23 +121,32 @@ export async function invokeEdge<T = unknown>(
 
   let response: Response;
   try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body ?? {}),
-    });
+    response = await fetchWithTimeout(
+      endpoint,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body ?? {}),
+      },
+      { timeoutMs: 15000 },
+    );
   } catch (err) {
-    const message =
-      err instanceof Error && err.message ? err.message : 'Failed to fetch';
-    const hint = message.toLowerCase().includes('failed to fetch')
-      ? 'Check NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL, CORS, mixed content, and function deployment.'
-      : null;
+    const isTimeout = err instanceof TimeoutError;
+    const message = isTimeout
+      ? 'Request timed out'
+      : err instanceof Error && err.message
+        ? err.message
+        : 'Failed to fetch';
+    const hint =
+      message.toLowerCase().includes('failed to fetch') || !isTimeout
+        ? 'Check NEXT_PUBLIC_SUPABASE_FUNCTIONS_URL, CORS, mixed content, and function deployment.'
+        : null;
     return {
       data: null,
       error: {
         message,
         status: 0,
-        code: 'FETCH_FAILED',
+        code: isTimeout ? 'TIMEOUT' : 'NETWORK',
         details: hint,
       },
       status: 0,
@@ -161,7 +172,9 @@ export async function invokeEdge<T = unknown>(
     const code =
       typeof payloadObject?.error_code === 'string'
         ? payloadObject.error_code
-        : null;
+        : response.status === 401 || response.status === 403
+          ? 'AUTH_EXPIRED'
+          : null;
     const details =
       payloadObject?.error_status !== undefined
         ? String(payloadObject.error_status)
@@ -176,6 +189,16 @@ export async function invokeEdge<T = unknown>(
       },
       status: response.status,
     };
+  }
+
+  if (isDev) {
+    const durationMs = Date.now() - startedAt;
+    if (durationMs > 5000) {
+      console.warn('[invokeEdge] slow request', {
+        functionName,
+        durationMs,
+      });
+    }
   }
 
   return { data: payload as T, error: null, status: response.status };

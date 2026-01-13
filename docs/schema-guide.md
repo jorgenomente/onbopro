@@ -113,6 +113,22 @@ Reglas:
 - `unique(org_id, name)` para evitar duplicados.
 - Todo acceso operativo pasa por locals.
 
+### org_settings
+
+Settings por organización (1:1).
+
+Campos clave:
+
+- `org_id` (PK, FK a organizations)
+- `quiz_prompt`
+- `updated_at`
+- `updated_by`
+
+Reglas:
+
+- Una fila por organización (se crea on-demand vía RPC).
+- Edición permitida solo a org_admin/superadmin.
+
 ---
 
 ## 5. Membresías y roles

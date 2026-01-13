@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { logout } from '@/lib/auth/logout';
@@ -38,11 +38,6 @@ function isAuthRoute(pathname: string) {
   return pathname.startsWith('/auth');
 }
 
-function shortId(value: string) {
-  if (value.length <= 10) return value;
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
-
 export default function Header({ organizationName, localName }: HeaderProps) {
   const pathname = usePathname();
   const params = useParams();
@@ -52,7 +47,12 @@ export default function Header({ organizationName, localName }: HeaderProps) {
   const [profileName, setProfileName] = useState('');
   const [profileRequired, setProfileRequired] = useState(false);
   const [context, setContext] = useState<MyContext | null>(null);
+  const [resolvedOrgName, setResolvedOrgName] = useState<string | null>(null);
+  const [resolvedLocalName, setResolvedLocalName] = useState<string | null>(
+    null,
+  );
   const [signingOut, setSigningOut] = useState(false);
+  const lastRefreshRef = useRef(0);
 
   const localId = typeof params?.localId === 'string' ? params.localId : null;
   const hideHeader =
@@ -104,19 +104,28 @@ export default function Header({ organizationName, localName }: HeaderProps) {
     void loadUser();
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (cancelled) return;
+        const now = Date.now();
+        const shouldRefresh =
+          event === 'SIGNED_OUT' && now - lastRefreshRef.current > 1200;
         if (!session) {
           setUser({ email: null, orgName: null });
           setUserId(null);
           setProfileName('');
           setProfileRequired(false);
           setContext(null);
-          router.refresh();
+          if (shouldRefresh) {
+            lastRefreshRef.current = now;
+            router.refresh();
+          }
           return;
         }
         await loadUser();
-        router.refresh();
+        if (shouldRefresh) {
+          lastRefreshRef.current = now;
+          router.refresh();
+        }
       },
     );
 
@@ -126,13 +135,92 @@ export default function Header({ organizationName, localName }: HeaderProps) {
     };
   }, [router]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!context?.org_admin_org_id) {
+        setResolvedOrgName(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', context.org_admin_org_id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        setResolvedOrgName(null);
+        return;
+      }
+
+      setResolvedOrgName((data?.name ?? null) as string | null);
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context?.org_admin_org_id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!localId || !pathname?.startsWith('/org')) {
+        setResolvedLocalName(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('v_org_local_context')
+        .select('local_name')
+        .eq('local_id', localId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        setResolvedLocalName(null);
+        return;
+      }
+
+      setResolvedLocalName((data?.local_name ?? null) as string | null);
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [localId, pathname]);
+
   const contextLabel = useMemo(() => {
-    const orgLabel = organizationName ?? user.orgName ?? 'Organización —';
+    const orgDisplay = organizationName ?? resolvedOrgName ?? null;
+    const orgLabel = orgDisplay
+      ? `Organización · ${orgDisplay}`
+      : 'Organización';
+
+    const localDisplay = localName ?? resolvedLocalName ?? null;
     const localLabel =
-      localName ?? (localId ? `Local ${shortId(localId)}` : null);
+      localId && localDisplay
+        ? `Local · ${localDisplay}`
+        : localId
+          ? 'Local'
+          : null;
 
     return { orgLabel, localLabel };
-  }, [organizationName, user.orgName, localName, localId]);
+  }, [
+    organizationName,
+    resolvedOrgName,
+    localName,
+    resolvedLocalName,
+    localId,
+  ]);
 
   const handleLogoClick = () => {
     if (pathname?.startsWith('/superadmin')) {
@@ -228,7 +316,7 @@ export default function Header({ organizationName, localName }: HeaderProps) {
                   </button>
                 ) : null}
               </div>
-              <div className="hidden flex-col text-right text-xs text-zinc-500 sm:flex">
+              <div className="hidden max-w-[220px] flex-col text-right text-xs text-zinc-500 sm:flex">
                 <span className="truncate">{contextLabel.orgLabel}</span>
                 {contextLabel.localLabel ? (
                   <span className="truncate">{contextLabel.localLabel}</span>
