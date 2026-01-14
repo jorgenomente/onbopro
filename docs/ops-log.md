@@ -4552,3 +4552,33 @@ Este log registra cambios relevantes de DB/RLS/migrations/ops para reconstruir c
 **Notes / decisions**
 
 - Race condition caused by SessionRevalidateOnFocus competing with page.tsx getSession during initial load
+
+### 2026-01-13T23:42:00Z — fix tab switch fetch timeout (always use timeout mode)
+
+**Goal**
+
+- Prevent fetches from hanging after tab switch by enforcing timeout mode
+
+**Docs consulted**
+
+- docs/audit/tab-switch-navigation-hangs.md
+- AGENTS.md
+
+**Files changed**
+
+- lib/supabase/client.ts
+- docs/ops-log.md
+
+**Changes (summary)**
+
+- Removed plain fetch mode option from Supabase client
+- Always use fetchWithTimeoutAbort with 15s timeout and 1 retry
+
+**Validation**
+
+- [x] npm run lint
+- [x] npm run build
+
+**Notes / decisions**
+
+- Plain mode was causing fetches to hang indefinitely after tab switch

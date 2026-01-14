@@ -37,7 +37,17 @@ export async function recheckSession(
   },
   options: RecheckOptions = {},
 ): Promise<RecheckResult> {
+  console.log('[recheckSession] 🔄 Starting getSession()...');
+  const startTime = Date.now();
+
   const { data, error } = await supabase.auth.getSession();
+
+  const duration = Date.now() - startTime;
+  console.log('[recheckSession] ✅ getSession() completed', {
+    duration,
+    hasSession: !!data.session,
+  });
+
   const session = data.session ?? null;
   const token = session?.access_token ?? null;
   const expiresAt = session?.expires_at ?? null;

@@ -1,97 +1,72 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
-import { recheckSession } from '@/lib/sessionRecheck';
+import { diag } from '@/lib/diagnostics/diag';
 
-const THROTTLE_MS = 7000;
-const MOUNT_DELAY_MS = 1000;
-
+/**
+ * SessionRevalidateOnFocus - Forces page reload after tab is hidden for too long.
+ *
+ * WHY: The supabase-js client has internal locks that can get stuck after
+ * browser tab sleep/switch. When this happens, ALL supabase.* calls hang
+ * indefinitely. The only reliable fix is a full page reload which resets
+ * the entire JS runtime and creates a fresh Supabase client.
+ *
+ * This approach:
+ * 1. Is guaranteed to work (fresh client)
+ * 2. Is transparent to the user (just a quick reload)
+ * 3. Only triggers after significant tab hide time (5+ seconds)
+ */
 export default function SessionRevalidateOnFocus() {
-  const router = useRouter();
-  const inFlightRef = useRef(false);
-  const lastRunRef = useRef(0);
-  const lastTokenRef = useRef<string | null>(null);
+  const hiddenAtRef = useRef<number | null>(null);
   const hasMountedRef = useRef(false);
 
   useEffect(() => {
-    let active = true;
-
-    // Delay enabling the revalidation to avoid interfering with initial page load
+    // Delay enabling to avoid interfering with initial page load
     const mountTimeout = setTimeout(() => {
       hasMountedRef.current = true;
-    }, MOUNT_DELAY_MS);
-
-    const logDev = (message: string, data?: Record<string, unknown>) => {
-      if (process.env.NODE_ENV === 'production') return;
-      if (data) {
-        console.info(`[session-revalidate] ${message}`, data);
-      } else {
-        console.info(`[session-revalidate] ${message}`);
-      }
-    };
-
-    const run = async () => {
-      if (!active) return;
-      if (inFlightRef.current) return;
-      const now = Date.now();
-      if (now - lastRunRef.current < THROTTLE_MS) return;
-
-      inFlightRef.current = true;
-      lastRunRef.current = now;
-
-      try {
-        logDev('revalidate start');
-        const result = await recheckSession(supabase);
-        if (!active) return;
-        if (!result.ok) {
-          logDev('no session, signing out');
-          await supabase.auth.signOut();
-          router.replace('/login');
-          return;
-        }
-
-        if (result.token && result.token !== lastTokenRef.current) {
-          lastTokenRef.current = result.token;
-          logDev('session token updated, refreshing UI');
-          router.refresh();
-        } else {
-          logDev('session ok, no refresh needed');
-        }
-      } catch (err) {
-        logDev('revalidate error', {
-          message: err instanceof Error ? err.message : String(err),
-        });
-      } finally {
-        inFlightRef.current = false;
-      }
-    };
-
-    const handleFocus = () => {
-      // Skip running during initial mount to avoid race conditions with page.tsx
-      if (!hasMountedRef.current) return;
-      void run();
-    };
+    }, 1000);
 
     const handleVisibility = () => {
-      // Skip running during initial mount to avoid race conditions with page.tsx
-      if (!hasMountedRef.current) return;
-      if (document.visibilityState === 'visible') {
-        void run();
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        diag.log('tab_hidden', { at: Date.now() });
+        console.log('[SessionRevalidate] 📴 Tab hidden');
+      } else if (document.visibilityState === 'visible') {
+        const hiddenDuration = hiddenAtRef.current
+          ? Date.now() - hiddenAtRef.current
+          : 0;
+
+        diag.log('tab_visible', { at: Date.now(), hiddenDuration });
+        console.log('[SessionRevalidate] 📱 Tab visible', { hiddenDuration });
+
+        // Always reload when returning from hidden (any duration)
+        // The supabase client can get poisoned even with brief tab switches
+        if (hasMountedRef.current && hiddenAtRef.current !== null) {
+          console.log(
+            '[SessionRevalidate] 🔄 Forcing page reload (supabase client poisoned)',
+          );
+          diag.log('page_reload_forced', {
+            reason: 'tab_was_hidden',
+            hiddenDuration,
+          });
+
+          // Small delay to let the DOM stabilize
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        }
+
+        hiddenAtRef.current = null;
       }
     };
 
-    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      active = false;
       clearTimeout(mountTimeout);
-      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [router]);
+  }, []);
 
   return null;
 }

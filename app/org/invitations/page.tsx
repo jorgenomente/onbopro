@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { invokeEdge } from '@/lib/invokeEdge';
 import { supabase } from '@/lib/supabase/client';
+import { supabaseRest } from '@/lib/supabase/supabaseRest';
 import InviteMemberModal, {
   InviteMemberResult,
 } from '@/components/org/invitations/InviteMemberModal';
@@ -54,10 +55,11 @@ export default function OrgInvitationsPage() {
       setLoading(true);
       setError('');
 
-      const { data, error: fetchError } = await supabase
-        .from('v_org_invitations')
-        .select('*')
-        .order('sent_at', { ascending: false });
+      // Using supabaseRest to bypass supabase-js client which hangs after tab switch
+      const { data, error: fetchError } = await supabaseRest<InvitationRow>(
+        'v_org_invitations',
+        { order: { column: 'sent_at', ascending: false } },
+      );
 
       if (cancelled) return;
 

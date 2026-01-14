@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
-import { withTimeout, TimeoutError } from '@/lib/withTimeout';
-import { traceQuery } from '@/lib/diagnostics/traceQuery';
+import { supabaseRest } from '@/lib/supabase/supabaseRest';
 import { diag } from '@/lib/diagnostics/diag';
-import { recheckSession } from '@/lib/sessionRecheck';
 import Breadcrumbs from '@/app/components/Breadcrumbs';
 import { coursesIndexCrumbs } from '@/app/org/_lib/breadcrumbs';
 
@@ -86,59 +84,46 @@ export default function OrgCoursesPage() {
   };
 
   const fetchCourses = async (requestId: number) => {
+    console.log('[courses/page] 📚 fetchCourses START', { requestId });
     diag.log('courses_load', { step: 'start', pathname, requestId });
     setLoading(true);
     setError('');
     setAuthExpired(false);
     activeRequestRef.current = requestId;
 
-    let response;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let response: any;
     try {
-      try {
-        await withTimeout(recheckSession(supabase), 2000, 'session_recheck');
-      } catch (err) {
-        diag.log('courses_load', {
-          step: 'session_recheck_timeout',
-          pathname,
-          requestId,
-          reason: err instanceof Error ? err.message : String(err),
-        });
-      }
+      // IMPORTANT: We use supabaseRest instead of supabase.from() because
+      // supabase.from() internally calls getSession() which hangs after tab switches.
+      // supabaseRest reads the token directly from localStorage.
 
+      console.log('[courses/page] 📚 About to call supabaseRest...');
       diag.log('courses_load', { step: 'before_query', pathname, requestId });
-      response = await traceQuery('org_courses:list', () =>
-        withTimeout(
-          Promise.resolve(supabase.from('v_org_courses').select('*')),
-          15000,
-          'v_org_courses',
-        ),
-      );
+
+      const { data, error } = await supabaseRest('v_org_courses');
+      response = { data, error };
+
+      console.log('[courses/page] 📚 supabaseRest completed', {
+        hasData: !!data,
+        error,
+      });
       diag.log('courses_load', { step: 'after_query', pathname, requestId });
     } catch (err) {
-      if (err instanceof TimeoutError) {
-        diag.log('query_timeout', { label: 'org_courses:list', requestId });
-        await recheckSession(supabase, { forceRefresh: true });
-        response = await traceQuery('org_courses:list', () =>
-          withTimeout(
-            Promise.resolve(supabase.from('v_org_courses').select('*')),
-            15000,
-            'v_org_courses',
-          ),
-        );
-        diag.log('courses_load', {
-          step: 'after_query_retry',
-          pathname,
-          requestId,
-        });
-      } else {
-        if (activeRequestRef.current !== requestId) return;
-        const message = 'No pudimos cargar los cursos.';
-        setError(message);
-        setCourses([]);
-        setLoading(false);
-        activeRequestRef.current = null;
-        return;
-      }
+      // Standard error handling
+      diag.log('query_error', {
+        label: 'org_courses:list',
+        requestId,
+        error: String(err),
+      });
+
+      if (activeRequestRef.current !== requestId) return;
+      const message = 'No pudimos cargar los cursos.';
+      setError(message);
+      setCourses([]);
+      setLoading(false);
+      activeRequestRef.current = null;
+      return;
     }
 
     if (activeRequestRef.current !== requestId) return;

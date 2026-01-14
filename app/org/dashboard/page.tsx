@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
-import { traceQuery } from '@/lib/diagnostics/traceQuery';
+import { supabaseRestSingle } from '@/lib/supabase/supabaseRest';
 
 type OrgLocal = {
   local_id: string;
@@ -98,16 +97,18 @@ export default function OrgDashboardPage() {
     let cancelled = false;
 
     const run = async () => {
+      console.log('[dashboard/page] 📊 run() START');
       setLoading(true);
       setError('');
 
-      const response = await traceQuery('org_dashboard:summary', () =>
-        Promise.resolve(supabase.from('v_org_dashboard').select('*').single()),
-      );
-      const { data, error: fetchError } = response as {
-        data: OrgDashboardRow | null;
-        error: { code?: string; message: string } | null;
-      };
+      console.log('[dashboard/page] 📊 About to call supabaseRestSingle...');
+      // Using supabaseRestSingle to bypass supabase-js client which hangs after tab switch
+      const { data, error: fetchError } =
+        await supabaseRestSingle<OrgDashboardRow>('v_org_dashboard');
+      console.log('[dashboard/page] 📊 Query completed', {
+        hasData: !!data,
+        error: fetchError,
+      });
 
       if (cancelled) return;
 
